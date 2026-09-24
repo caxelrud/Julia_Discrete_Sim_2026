@@ -1,0 +1,181 @@
+### A Pluto.jl notebook ###
+# v0.20.23
+
+using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
+# ╔═╡ 97e13ff1-ee9c-4341-a686-92aecf6698f2
+md"""
+# Queues, Erlang and capacity
+
+A simulation is only credible when it agrees with queueing theory, and only useful when it says how much capacity to install.
+
+This notebook belongs to the study in this repository: it loads the artefacts the
+pipeline produced (`data/analysis.json` and `reports/figures/*.png`), shows the
+section of the report it is about, and prints that section to PDF in its last
+cell. Nothing here is a copy of a number typed by hand -- every value comes from
+the bundle, and the bundle comes from `scripts/run_study.jl`.
+"""
+
+# ╔═╡ ac6c93b6-16dd-43e8-9330-d3f12cd04ca4
+md"""
+## The environment
+
+The first cell activates `notebooks/Project.toml`, which has `DiscreteSim` (this
+repository, developed in place) together with `PlutoUI` and `Plots`. Activating it
+explicitly means the notebook runs the same environment interactively and headless
+(`scripts/run_notebooks.jl`), with no package installation in the middle.
+"""
+
+# ╔═╡ 0a4f1d00-a3ef-4665-9bb0-50b81490a675
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 9bab330e-18d1-4785-a11a-bd999e89b4ef
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
+end
+
+# ╔═╡ 0c8ebdd8-c572-4235-bf42-13f7cef8bb60
+begin
+ROOT = dirname(@__DIR__)
+end
+
+# ╔═╡ c5c76bc7-6af8-4901-b8e1-eb6771469373
+md"""
+## The study, loaded from disk
+
+`load_study` reads the JSON the pipeline wrote and turns it back into the
+symbol-keyed records the package uses, so the notebook and the printed report
+show the same numbers without re-running the study.
+"""
+
+# ╔═╡ 847d5d1d-b5aa-4966-b7ad-f78c92d46c7b
+begin
+bundle = load_study(ROOT);
+end
+
+# ╔═╡ e5e7a70d-b863-4e6e-abc7-1739b7485749
+begin
+TableOfContents()
+end
+
+# ╔═╡ 0a329c33-a261-4e1f-8f40-996041611a2b
+md"""
+## The section: *Queues*
+"""
+
+# ╔═╡ 24033bd6-915e-4c36-8759-769ed91ef6c1
+begin
+HTML(preview_section(bundle, :queues))
+end
+
+# ╔═╡ fd9ded5e-ac33-438e-a1ce-e00eca4517f2
+md"""
+## Erlang C, live
+
+The closed-form results the engine has to agree with are part of the package:
+`theory(:mmc; λ, μ, c)` returns the whole stationary picture of an Erlang C queue.
+Change the number of servers and watch the waiting time collapse.
+"""
+
+# ╔═╡ b7575c2d-f163-46aa-b0fd-c0e23dac4368
+begin
+@bind servers Slider(1:8; default = 2, show_value = true)
+end
+
+# ╔═╡ 987a13cf-5b89-493d-bbcc-b065549beb22
+begin
+λ = 1.6
+    rows = [theory(:mmc; λ = λ, μ = 0.5, c = c) for c in 1:Int(servers)]
+    table_html([SymDict(:servers => r[:c], :rho => r[:rho], :pw => r[:pw], :Lq => r[:Lq],
+            :Wq => r[:Wq], :W => r[:W], :L => r[:L]) for r in rows],
+        [:servers, :rho, :pw, :Lq, :Wq, :W, :L]) |> HTML
+end
+
+# ╔═╡ 76fbf873-06f9-4f31-b3bc-9b402ce83fdd
+md"""
+### The same system, simulated
+
+Four replications of the configuration on the slider, with the interval of the
+mean waiting time -- and the Erlang value for comparison. This is the check a
+simulation project should run on day one.
+"""
+
+# ╔═╡ a9ca15f2-bddf-4db5-aa29-929deae8c19f
+begin
+factor = model_params(:mmc, (arrival_rate = λ, service_rate = 0.5, servers = Int(servers)))
+    study = experiment(opts -> build_model(:mmc, factor, opts),
+        ExperimentConfig(replications = 6, horizon = 4000.0, warmup = 400.0); name = :mmc_live);
+    ci = metric_ci(study, :wait_mean)
+    theory_wq = theory(:mmc; λ = λ, μ = 0.5, c = Int(servers))[:Wq]
+    SymDict(:servers => Int(servers), :wait_mean => ci[:mean], :half_width => ci[:half_width],
+        :erlang_wq => theory_wq, :covered => ci[:lo] <= theory_wq <= ci[:hi])
+end
+
+# ╔═╡ 3723dc60-be69-4da6-b927-af14337a48ed
+begin
+fig_convergence(study)
+end
+
+# ╔═╡ 68206051-ca24-4716-b0be-aec8acf89db5
+md"""
+## The printout, and its PDF
+
+The cell below writes the section as a self-contained HTML printout and prints it
+with a headless browser: `reports/html/notebook_queues.html` and
+`reports/pdf/notebook_queues.pdf`. The notebook *is* the report -- the PDF is its
+printout.
+"""
+
+# ╔═╡ 9e502db8-1f7a-41ad-8bf3-83207b1493fc
+begin
+println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
+    print_section_pdf(bundle, :queues; root = ROOT)
+end
+
+# ╔═╡ cdd166d2-a01f-489c-bdba-c3ed9bd4a7ca
+md"""
+---
+*Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
+`$(get(get(bundle, :config, SymDict()), :seed, 0))`). Re-run
+`julia --project=. scripts/run_study.jl` to refresh every number in this notebook.*
+"""
+
+# ╔═╡ Cell order:
+# ╠═97e13ff1-ee9c-4341-a686-92aecf6698f2
+# ╠═ac6c93b6-16dd-43e8-9330-d3f12cd04ca4
+# ╠═0a4f1d00-a3ef-4665-9bb0-50b81490a675
+# ╠═9bab330e-18d1-4785-a11a-bd999e89b4ef
+# ╠═0c8ebdd8-c572-4235-bf42-13f7cef8bb60
+# ╠═c5c76bc7-6af8-4901-b8e1-eb6771469373
+# ╠═847d5d1d-b5aa-4966-b7ad-f78c92d46c7b
+# ╠═e5e7a70d-b863-4e6e-abc7-1739b7485749
+# ╠═0a329c33-a261-4e1f-8f40-996041611a2b
+# ╠═24033bd6-915e-4c36-8759-769ed91ef6c1
+# ╠═fd9ded5e-ac33-438e-a1ce-e00eca4517f2
+# ╠═b7575c2d-f163-46aa-b0fd-c0e23dac4368
+# ╠═987a13cf-5b89-493d-bbcc-b065549beb22
+# ╠═76fbf873-06f9-4f31-b3bc-9b402ce83fdd
+# ╠═a9ca15f2-bddf-4db5-aa29-929deae8c19f
+# ╠═3723dc60-be69-4da6-b927-af14337a48ed
+# ╠═68206051-ca24-4716-b0be-aec8acf89db5
+# ╠═9e502db8-1f7a-41ad-8bf3-83207b1493fc
+# ╠═cdd166d2-a01f-489c-bdba-c3ed9bd4a7ca

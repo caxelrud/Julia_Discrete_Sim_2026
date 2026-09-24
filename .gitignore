@@ -1,0 +1,18 @@
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/docs/build/
+.DS_Store
+
+# Generated observation feeds (large; regenerate with scripts/generate_data.jl).
+# The analysis JSON, the printouts and the PDFs *are* the deliverable of this
+# repository, so they stay under version control.
+data/history_*.csv
+data/observations_*.csv
+
+# Local scratch
+_*
+tmp/
+*.log
+*.err

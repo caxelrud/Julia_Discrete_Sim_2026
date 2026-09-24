@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1.11', '1.12']
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+        env:
+          # the headless Pluto run is available, and it is quick enough on CI
+          DISCRETESIM_TEST_PLUTO: 'false'
+
+  study:
+    name: The study, the notebooks and the PDFs
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+
+      # the runners ship Chrome, so the printouts can be turned into PDFs here too
+      - name: Static notebook checks
+        run: julia --project=. scripts/validate_notebooks.jl
+
+      - name: Generate the data, the experiments, the printouts and the PDFs
+        run: julia --project=. scripts/run_study.jl --days=10 --reps=4 --horizon=2000 --warmup=200 --parallel
+
+      - name: Run every notebook headless (each one prints its own PDF)
+        run: julia --project=. scripts/run_notebooks.jl --no-save
+
+      - name: Upload the reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: discretesim-reports
+          path: |
+            reports/html/*.html
+            reports/pdf/*.pdf
+            reports/figures/*.png
+            data/*.json
+            data/*.csv

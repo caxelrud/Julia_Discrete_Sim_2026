@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Models</title><style>:root { --ink:#1b1b1b; --muted:#6b6b6b; --line:#d8dee4; --good:#2e7d32; --warn:#ef8b1b;
+        --bad:#c62828; --primary:#1f5c8b; --band:#f4f7fa; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink);
+       margin: 0; padding: 0; font-size: 10.5pt; line-height: 1.45; }
+.page { max-width: 190mm; margin: 0 auto; padding: 10mm 6mm; }
+h1 { font-size: 20pt; margin: 0 0 2mm 0; color: var(--primary); }
+h2 { font-size: 13pt; margin: 7mm 0 2mm 0; padding-bottom: 1mm;
+     border-bottom: 0.6mm solid var(--line); color: var(--primary); }
+h3 { font-size: 11pt; margin: 5mm 0 1.5mm 0; }
+p { margin: 1.5mm 0; }
+.subtitle { color: var(--muted); font-size: 11pt; margin-bottom: 4mm; }
+.meta { color: var(--muted); font-size: 8.5pt; }
+.section { margin-bottom: 6mm; }
+.lead { font-size: 11pt; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 3mm 0; font-size: 9pt; }
+th, td { border-bottom: 0.2mm solid var(--line); padding: 1.2mm 2mm; text-align: left; }
+th { background: var(--band); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cards { display: flex; flex-wrap: wrap; gap: 3mm; margin: 2mm 0 4mm 0; }
+.card { flex: 1 1 30mm; border: 0.2mm solid var(--line); border-radius: 1.5mm;
+        padding: 2mm 3mm; background: var(--band); }
+.card .label { color: var(--muted); font-size: 8pt; text-transform: uppercase;
+               letter-spacing: 0.2mm; }
+.card .value { font-size: 14pt; font-weight: 600; }
+.card .unit { color: var(--muted); font-size: 8.5pt; margin-left: 1mm; }
+.badge { display: inline-block; border-radius: 2mm; padding: 0.3mm 1.6mm; font-size: 8pt;
+         font-weight: 600; color: #fff; background: var(--muted); }
+.badge.good { background: var(--good); } .badge.warn { background: var(--warn); }
+.badge.bad { background: var(--bad); } .badge.info { background: var(--primary); }
+figure { margin: 3mm 0; page-break-inside: avoid; }
+figure img { width: 100%; border: 0.2mm solid var(--line); border-radius: 1.5mm; }
+figcaption { color: var(--muted); font-size: 8.5pt; margin-top: 1mm; }
+.callout { border-left: 1mm solid var(--primary); background: var(--band); padding: 2mm 3mm;
+           margin: 2mm 0 4mm 0; }
+.callout.good { border-color: var(--good); } .callout.warn { border-color: var(--warn); }
+.callout.bad { border-color: var(--bad); }
+ul, ol { margin: 1.5mm 0 2mm 5mm; padding: 0; } li { margin: 0.8mm 0; }
+code, pre, .mono { font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+                   font-size: 8.5pt; }
+pre { background: var(--band); padding: 2mm 3mm; border-radius: 1.5mm; overflow-x: auto; }
+.toc { columns: 2; font-size: 9.5pt; }
+.toc a { color: var(--primary); text-decoration: none; }
+.pagebreak { page-break-before: always; }
+footer { margin-top: 8mm; border-top: 0.2mm solid var(--line); padding-top: 2mm;
+         color: var(--muted); font-size: 8pt; }
+@page { size: A4; margin: 14mm 12mm; }
+@media print { .noprint { display: none; } body { font-size: 10pt; } }
+</style></head><body><div class="page"><h1>Models</h1><div class="subtitle">Discrete-event simulation in Julia: machine_shop (8 replications of 4000 minutes, seed 20260101)</div><div class="meta">Title: DiscreteEventSimulation &nbsp;|&nbsp; Model: machine_shop &nbsp;|&nbsp; Seed: 20260101 &nbsp;|&nbsp; Replications: 8 &nbsp;|&nbsp; Horizon: 4000 &nbsp;|&nbsp; Warmup: 400.0 &nbsp;|&nbsp; Generated:  &nbsp;|&nbsp; Engine: DiscreteSim &nbsp;|&nbsp; Sections: 8</div><section class="section" id="models"><h2>The models</h2><p class="lead">Five models, one engine: a service pool, a transfer line, a job shop, an inventory position and a contact centre.</p><table><caption style="caption-side:top;text-align:left;color:#6b6b6b;">Models</caption><thead><tr><th>Model</th><th>Entity</th><th>Completed</th><th>Throughput</th><th>Cycle time</th><th>Wait</th><th>Utilisation</th><th>Availability</th></tr></thead><tbody><tr><td>mmc</td><td>customer</td><td class="num">3048</td><td class="num">0.847</td><td class="num">1.912</td><td class="num">0.582</td><td class="num">0.563</td><td class="num">1.0</td></tr><tr><td>transfer_line</td><td>part</td><td class="num">711.9</td><td class="num">0.198</td><td class="num">89.7</td><td class="num">89.7</td><td class="num">0.832</td><td class="num">0.974</td></tr><tr><td>machine_shop</td><td>job</td><td class="num">477.5</td><td class="num">0.133</td><td class="num">552.5</td><td class="num">552.5</td><td class="num">0.863</td><td class="num">1.0</td></tr><tr><td>inventory</td><td>order</td><td class="num">7178</td><td class="num">1.994</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr><tr><td>call_center</td><td>call</td><td class="num">3041</td><td class="num">0.845</td><td class="num">1.341</td><td class="num">0.011</td><td class="num">0.281</td><td class="num">1.0</td></tr></tbody></table></section><footer>DiscreteSim.jl, section models, seed 20260101</footer></div></body></html>

@@ -1,0 +1,11 @@
+# Normalise line endings in the repository, and mark the generated artefacts as
+# binary so git does not try to diff them.
+* text=auto eol=lf
+*.jl text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.csv text eol=lf
+*.pdf binary
+*.png binary

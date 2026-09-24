@@ -1,0 +1,19 @@
+{
+    "reevaluation": "keep",
+    "root": "C:\\Users\\inter\\OneDrive\\_myWork\\Research2026\\Julia_Discrete_Sim_2026",
+    "replications": 8,
+    "pdf": true,
+    "validation": "validated",
+    "horizon": 4000,
+    "models": 5,
+    "n_pdf": 9,
+    "n_figures": 12,
+    "featured": "machine_shop",
+    "n_html": 9,
+    "status": "ok",
+    "n_data": 9,
+    "title": "DiscreteEventSimulation",
+    "seed": 20260101,
+    "elapsed_seconds": 67.8,
+    "warmup": 400
+}

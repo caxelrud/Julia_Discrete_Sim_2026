@@ -1,0 +1,179 @@
+### A Pluto.jl notebook ###
+# v0.20.23
+
+using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
+# ╔═╡ c5706c82-362a-4c6f-8666-7b74b18be646
+md"""
+# The five models
+
+A service pool, a transfer line, a job shop, an inventory position and a contact centre, all on one engine.
+
+This notebook belongs to the study in this repository: it loads the artefacts the
+pipeline produced (`data/analysis.json` and `reports/figures/*.png`), shows the
+section of the report it is about, and prints that section to PDF in its last
+cell. Nothing here is a copy of a number typed by hand -- every value comes from
+the bundle, and the bundle comes from `scripts/run_study.jl`.
+"""
+
+# ╔═╡ 6852da4e-b4e2-4e13-ad0f-51401345f7a5
+md"""
+## The environment
+
+The first cell activates `notebooks/Project.toml`, which has `DiscreteSim` (this
+repository, developed in place) together with `PlutoUI` and `Plots`. Activating it
+explicitly means the notebook runs the same environment interactively and headless
+(`scripts/run_notebooks.jl`), with no package installation in the middle.
+"""
+
+# ╔═╡ 23e9925a-8364-4c16-8ddf-a2f19da06b01
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ a20e8edc-a2f4-4126-b637-838fbc4bd877
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
+end
+
+# ╔═╡ 633dc179-6aa4-4bb7-9bf8-a553ef3c35a8
+begin
+ROOT = dirname(@__DIR__)
+end
+
+# ╔═╡ ecaa7164-1017-4be3-81c9-8566514c1e91
+md"""
+## The study, loaded from disk
+
+`load_study` reads the JSON the pipeline wrote and turns it back into the
+symbol-keyed records the package uses, so the notebook and the printed report
+show the same numbers without re-running the study.
+"""
+
+# ╔═╡ 1f1636ac-c452-475e-b226-2c5954890e25
+begin
+bundle = load_study(ROOT);
+end
+
+# ╔═╡ 5e4d80b1-5adf-476a-bfe1-ff796d04b68c
+begin
+TableOfContents()
+end
+
+# ╔═╡ 5f0937cd-4b65-4253-a86d-97f1dfdfad2b
+md"""
+## The section: *Models*
+"""
+
+# ╔═╡ 5ec15c4c-6b58-4847-84ff-1ec1de10c479
+begin
+HTML(preview_section(bundle, :models))
+end
+
+# ╔═╡ 7468ef34-dd66-4a15-8b73-64841b9e6652
+md"""
+## Every model, one at a time
+
+Pick a model, build it from its **calibrated** parameters (the ones the data layer
+produced) and run it: the metrics come from the engine, and the last row is the
+cross-check — Erlang C for the queues, Little's law for the rest.
+"""
+
+# ╔═╡ 133b6f68-fe44-4bc2-8302-a0f965cff527
+begin
+@bind choice Select([code_string(m) => m for m in MODELS]; default = :machine_shop)
+end
+
+# ╔═╡ 8af3c4ed-0e21-45f7-8332-53bb4d172e48
+begin
+chosen = model_params_from_calibration(bundle[:calibration], choice)
+    sample = build_model(choice, chosen,
+        SymDict(:seed => get(bundle[:config], :seed, 20260101), :horizon => 4000.0,
+            :warmup => 400.0, :trace => true))
+    run!(sample);
+    SymDict(:model => choice, :validation => validate_model(sample, choice, chosen)[:verdict],
+        :completed => total_of(sample[:completed]), :util_avg => round(
+            sum(utilisation(r) for (_, r) in sample.resources if r isa Resource) /
+            max(length([1 for (_, r) in sample.resources if r isa Resource]), 1), digits = 3))
+end
+
+# ╔═╡ 7897097b-84a6-44ff-b9ce-baf7af97e614
+begin
+rows = [SymDict(:metric => k, :mean => v[:mean], :half_width => v[:half_width])
+            for (k, v) in summary(sample.stats) if v isa TimeWeighted || v isa Tally]
+    table_html(rows, [:metric, :mean, :half_width]) |> HTML
+end
+
+# ╔═╡ 8bef2c0f-cc46-4ec3-a1a0-bd2c7ad54f6b
+begin
+fig_utilisation(sample)
+end
+
+# ╔═╡ 3cb76e44-25ec-489a-8239-18e89dee7d27
+begin
+throughput = get(bundle[:models][choice][:summary], :throughput, SymDict(:mean => NaN))
+    (choice = choice, throughput = throughput[:mean],
+        note = haskey(bundle[:models], choice) ? :from_the_study : :not_measured)
+end
+
+# ╔═╡ 3414162e-e590-4351-9608-8e0ff1f1d0b2
+md"""
+## The printout, and its PDF
+
+The cell below writes the section as a self-contained HTML printout and prints it
+with a headless browser: `reports/html/notebook_models.html` and
+`reports/pdf/notebook_models.pdf`. The notebook *is* the report -- the PDF is its
+printout.
+"""
+
+# ╔═╡ 0111ce21-4142-4068-a78f-c2060d8313a7
+begin
+println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
+    print_section_pdf(bundle, :models; root = ROOT)
+end
+
+# ╔═╡ 3fd1c9b3-7a30-449c-8700-d11682c465d5
+md"""
+---
+*Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
+`$(get(get(bundle, :config, SymDict()), :seed, 0))`). Re-run
+`julia --project=. scripts/run_study.jl` to refresh every number in this notebook.*
+"""
+
+# ╔═╡ Cell order:
+# ╠═c5706c82-362a-4c6f-8666-7b74b18be646
+# ╠═6852da4e-b4e2-4e13-ad0f-51401345f7a5
+# ╠═23e9925a-8364-4c16-8ddf-a2f19da06b01
+# ╠═a20e8edc-a2f4-4126-b637-838fbc4bd877
+# ╠═633dc179-6aa4-4bb7-9bf8-a553ef3c35a8
+# ╠═ecaa7164-1017-4be3-81c9-8566514c1e91
+# ╠═1f1636ac-c452-475e-b226-2c5954890e25
+# ╠═5e4d80b1-5adf-476a-bfe1-ff796d04b68c
+# ╠═5f0937cd-4b65-4253-a86d-97f1dfdfad2b
+# ╠═5ec15c4c-6b58-4847-84ff-1ec1de10c479
+# ╠═7468ef34-dd66-4a15-8b73-64841b9e6652
+# ╠═133b6f68-fe44-4bc2-8302-a0f965cff527
+# ╠═8af3c4ed-0e21-45f7-8332-53bb4d172e48
+# ╠═7897097b-84a6-44ff-b9ce-baf7af97e614
+# ╠═8bef2c0f-cc46-4ec3-a1a0-bd2c7ad54f6b
+# ╠═3cb76e44-25ec-489a-8239-18e89dee7d27
+# ╠═3414162e-e590-4351-9608-8e0ff1f1d0b2
+# ╠═0111ce21-4142-4068-a78f-c2060d8313a7
+# ╠═3fd1c9b3-7a30-449c-8700-d11682c465d5

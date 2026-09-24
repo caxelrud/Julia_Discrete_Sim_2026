@@ -1,0 +1,184 @@
+### A Pluto.jl notebook ###
+# v0.20.23
+
+using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
+# ╔═╡ 66b95766-cf73-420e-b02a-5104d14cd49a
+md"""
+# Artefacts and the printed report
+
+Every file the study produced, and the one call that prints the whole report.
+
+This notebook belongs to the study in this repository: it loads the artefacts the
+pipeline produced (`data/analysis.json` and `reports/figures/*.png`), shows the
+section of the report it is about, and prints that section to PDF in its last
+cell. Nothing here is a copy of a number typed by hand -- every value comes from
+the bundle, and the bundle comes from `scripts/run_study.jl`.
+"""
+
+# ╔═╡ c5bcf4d7-e029-4e59-880a-dcfb34776c9d
+md"""
+## The environment
+
+The first cell activates `notebooks/Project.toml`, which has `DiscreteSim` (this
+repository, developed in place) together with `PlutoUI` and `Plots`. Activating it
+explicitly means the notebook runs the same environment interactively and headless
+(`scripts/run_notebooks.jl`), with no package installation in the middle.
+"""
+
+# ╔═╡ 10ecbff6-f038-4dd3-856d-4ad25aa9abc8
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 25c8e19d-f7b3-4e37-abf9-5d9d080e2769
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
+end
+
+# ╔═╡ e832f1d9-1764-4bd7-a173-f507051486a5
+begin
+ROOT = dirname(@__DIR__)
+end
+
+# ╔═╡ ef6ed896-dcce-4737-9037-dffcf50d19ee
+md"""
+## The study, loaded from disk
+
+`load_study` reads the JSON the pipeline wrote and turns it back into the
+symbol-keyed records the package uses, so the notebook and the printed report
+show the same numbers without re-running the study.
+"""
+
+# ╔═╡ 625232dc-3421-430c-a34f-c6d4e9a2bce7
+begin
+bundle = load_study(ROOT);
+end
+
+# ╔═╡ 297fa884-2a8a-4df8-820d-11eea91ae93e
+begin
+TableOfContents()
+end
+
+# ╔═╡ 57621fe6-922f-4f6c-8dd5-6eede55e48ae
+md"""
+## The section: *Reports*
+"""
+
+# ╔═╡ 92374afd-6f40-486b-8497-a75ab45f4ef0
+begin
+HTML(preview_section(bundle, :reports))
+end
+
+# ╔═╡ 7e1f2a33-57bd-4c70-8ffd-4857d2c33cfe
+md"""
+## Everything the study produced
+
+The pipeline writes its numbers to `data/`, its figures to `reports/figures/`, its
+printouts to `reports/html/` and its PDFs to `reports/pdf/`. The cell below lists
+them with their size, so a reader can see what the study is made of.
+"""
+
+# ╔═╡ 2a0bc94e-12ac-4874-8ea9-989e27f7dd96
+begin
+file_rows = SymDict[]
+    for kind in (:data, :figures, :html, :pdf)
+        for p in get(bundle[:artifacts], kind, String[])
+            path = joinpath(ROOT, String(p))
+            isfile(path) || continue
+            push!(file_rows, SymDict(:kind => kind, :file => relpath(path, ROOT),
+                :bytes => filesize(path)))
+        end
+    end
+    table_html(file_rows, [:kind, :file, :bytes]) |> HTML
+end
+
+# ╔═╡ a8acfbc2-ea60-4893-be73-e905f363c9dc
+md"""
+## The whole report, in one PDF
+
+A single call prints every section of the study as one document -- the same HTML the
+sections above show, in order, with a table of contents.
+"""
+
+# ╔═╡ 84e303a6-f18c-49e6-b34f-84b24168b7bf
+begin
+full = print_report_pdf(bundle; root = ROOT)
+    SymDict(:html => relpath(full[:html], ROOT), :pdf => relpath(full[:pdf], ROOT),
+        :printed => full[:printed], :pdf_bytes => get(full, :pdf_bytes, 0))
+end
+
+# ╔═╡ 883105c2-f0ef-44c8-b54c-fcb81904b5e1
+begin
+capability = pdf_capability()
+    SymDict(:available => capability[:available], :browser => get(capability, :browser, :none))
+end
+
+# ╔═╡ 6a1916a7-87be-4129-b519-a71839ab68a6
+begin
+manifest = bundle[:manifest]
+    (kind = :manifest, entries = length(manifest), status = get(manifest, :status, :ok),
+        n_pdf = get(manifest, :n_pdf, 0), elapsed_seconds = get(manifest, :elapsed_seconds, 0.0))
+end
+
+# ╔═╡ e2da655a-9def-4577-b810-8a0ba77759df
+md"""
+## The printout, and its PDF
+
+The cell below writes the section as a self-contained HTML printout and prints it
+with a headless browser: `reports/html/notebook_reports.html` and
+`reports/pdf/notebook_reports.pdf`. The notebook *is* the report -- the PDF is its
+printout.
+"""
+
+# ╔═╡ dce7cb7c-c0bd-4c39-a226-7eead4432555
+begin
+println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
+    print_section_pdf(bundle, :reports; root = ROOT)
+end
+
+# ╔═╡ be359202-54a4-4e41-872e-03cd73c81462
+md"""
+---
+*Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
+`$(get(get(bundle, :config, SymDict()), :seed, 0))`). Re-run
+`julia --project=. scripts/run_study.jl` to refresh every number in this notebook.*
+"""
+
+# ╔═╡ Cell order:
+# ╠═66b95766-cf73-420e-b02a-5104d14cd49a
+# ╠═c5bcf4d7-e029-4e59-880a-dcfb34776c9d
+# ╠═10ecbff6-f038-4dd3-856d-4ad25aa9abc8
+# ╠═25c8e19d-f7b3-4e37-abf9-5d9d080e2769
+# ╠═e832f1d9-1764-4bd7-a173-f507051486a5
+# ╠═ef6ed896-dcce-4737-9037-dffcf50d19ee
+# ╠═625232dc-3421-430c-a34f-c6d4e9a2bce7
+# ╠═297fa884-2a8a-4df8-820d-11eea91ae93e
+# ╠═57621fe6-922f-4f6c-8dd5-6eede55e48ae
+# ╠═92374afd-6f40-486b-8497-a75ab45f4ef0
+# ╠═7e1f2a33-57bd-4c70-8ffd-4857d2c33cfe
+# ╠═2a0bc94e-12ac-4874-8ea9-989e27f7dd96
+# ╠═a8acfbc2-ea60-4893-be73-e905f363c9dc
+# ╠═84e303a6-f18c-49e6-b34f-84b24168b7bf
+# ╠═883105c2-f0ef-44c8-b54c-fcb81904b5e1
+# ╠═6a1916a7-87be-4129-b519-a71839ab68a6
+# ╠═e2da655a-9def-4577-b810-8a0ba77759df
+# ╠═dce7cb7c-c0bd-4c39-a226-7eead4432555
+# ╠═be359202-54a4-4e41-872e-03cd73c81462
