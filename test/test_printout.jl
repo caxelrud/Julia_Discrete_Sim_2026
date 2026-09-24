@@ -111,6 +111,39 @@ end
     @test occursin("id=\"overview\"", preview)
 end
 
+@testset "the header of a printout" begin
+    σ = build_model(:mmc, model_params(:mmc), SymDict(:seed => 2, :horizon => 800.0,
+        :trace => true))
+    warmup!(σ, 100.0)
+    run!(σ)
+    bundle = SymDict(:run => σ, :config => SymDict(:seed => 2, :replications => 3,
+        :horizon => 800.0, :warmup => 100.0, :title => :test_study), :model => :mmc)
+
+    meta = report_meta(bundle)
+    @test meta[:model] === :mmc
+    @test meta[:seed] == 2
+    @test meta[:engine] === :DiscreteSim
+    ## the header says when the document was made, in a readable form
+    @test occursin(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", meta[:generated])
+    @test generation_stamp(DateTime(2026, 9, 24, 7, 21, 20)) == "2026-09-24 07:21:20"
+
+    ## ... and it reaches the header line and the footer of the document
+    html = report_html(bundle; keys = [:overview])
+    @test occursin(string("Generated: ", meta[:generated]), html)
+    @test occursin(string("from seed 2 on ", meta[:generated]), html)
+
+    ## a caller that wants byte-identical printouts pins the stamp
+    pinned = report_meta(SymDict(:model => :mmc,
+        :config => SymDict(:generated => "1970-01-01 00:00:00")))
+    @test pinned[:generated] == "1970-01-01 00:00:00"
+    @test occursin("Generated: 1970-01-01 00:00:00",
+        report_html(SymDict(:run => σ, :model => :mmc,
+            :config => SymDict(:seed => 2, :generated => "1970-01-01 00:00:00"));
+            keys = [:overview]))
+    @test !occursin("from seed 2 on ", report_html(SymDict(:run => σ, :model => :mmc,
+        :config => SymDict(:seed => 2, :generated => "")); keys = [:overview]))
+end
+
 @testset "printing to PDF" begin
     @test pdf_available()
     exe = find_chrome()

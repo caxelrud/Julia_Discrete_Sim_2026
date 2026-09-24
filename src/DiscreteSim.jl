@@ -183,7 +183,7 @@ export PRINTOUT_CSS, html_escape, fmt_number, fmt_metric, fmt_value, fmt_interva
     verdict_class, paragraph_html, list_html, callout_html, cards_html, table_html,
     kv_html, figure_html, section_html, write_printout, ANALYSIS_KEYS, section_of,
     report_meta, document_html, report_html, preview_section, section_document,
-    report_subtitle, print_section_pdf, print_report_pdf, print_all_sections,
+    report_subtitle, generation_stamp, print_section_pdf, print_report_pdf, print_all_sections,
     headline_cards, metrics_table_html, resources_table_html, comparison_body,
     figures_of
 
