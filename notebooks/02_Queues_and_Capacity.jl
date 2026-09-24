@@ -1,20 +1,38 @@
 ### A Pluto.jl notebook ###
-# v0.20.23
+# v1.0.3
 
 using Markdown
 using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    quote
+    #! format: off
+    return quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
+    #! format: on
 end
 
-# ╔═╡ 97e13ff1-ee9c-4341-a686-92aecf6698f2
+# ╔═╡ d0508f3e-b88b-4b56-b038-6b28daf6cf58
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ ed196837-c632-4bda-82cc-13a54101174e
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
+end
+
+# ╔═╡ c01f9cb4-de62-4fa9-9302-58f9229f80ce
 md"""
 # Queues, Erlang and capacity
 
@@ -27,7 +45,7 @@ cell. Nothing here is a copy of a number typed by hand -- every value comes from
 the bundle, and the bundle comes from `scripts/run_study.jl`.
 """
 
-# ╔═╡ ac6c93b6-16dd-43e8-9330-d3f12cd04ca4
+# ╔═╡ 1087580c-72b6-4cc9-9dec-054370f6eb65
 md"""
 ## The environment
 
@@ -37,28 +55,12 @@ explicitly means the notebook runs the same environment interactively and headle
 (`scripts/run_notebooks.jl`), with no package installation in the middle.
 """
 
-# ╔═╡ 0a4f1d00-a3ef-4665-9bb0-50b81490a675
-begin
-import Pkg
-    Pkg.activate(@__DIR__)
-end
-
-# ╔═╡ 9bab330e-18d1-4785-a11a-bd999e89b4ef
-begin
-using DiscreteSim
-    using PlutoUI
-    using Plots
-    using Statistics
-    using Printf
-    using Dates
-end
-
-# ╔═╡ 0c8ebdd8-c572-4235-bf42-13f7cef8bb60
+# ╔═╡ e465cbef-c8f4-4f12-8da9-245f79029236
 begin
 ROOT = dirname(@__DIR__)
 end
 
-# ╔═╡ c5c76bc7-6af8-4901-b8e1-eb6771469373
+# ╔═╡ 52c27014-5710-4454-b536-348605ea02b4
 md"""
 ## The study, loaded from disk
 
@@ -67,27 +69,27 @@ symbol-keyed records the package uses, so the notebook and the printed report
 show the same numbers without re-running the study.
 """
 
-# ╔═╡ 847d5d1d-b5aa-4966-b7ad-f78c92d46c7b
+# ╔═╡ 21de28ac-2a1e-4a18-aeef-a5effd04cec7
 begin
 bundle = load_study(ROOT);
 end
 
-# ╔═╡ e5e7a70d-b863-4e6e-abc7-1739b7485749
+# ╔═╡ e3494fc0-985a-4325-b2af-01e9859ca1bc
 begin
 TableOfContents()
 end
 
-# ╔═╡ 0a329c33-a261-4e1f-8f40-996041611a2b
+# ╔═╡ ff17cd30-bd3c-4896-a989-a4c1942d811e
 md"""
 ## The section: *Queues*
 """
 
-# ╔═╡ 24033bd6-915e-4c36-8759-769ed91ef6c1
+# ╔═╡ 4252acb7-5802-4673-8fee-a47c298c69c7
 begin
 HTML(preview_section(bundle, :queues))
 end
 
-# ╔═╡ fd9ded5e-ac33-438e-a1ce-e00eca4517f2
+# ╔═╡ 26a29d00-13ab-4d64-a956-3fa9d1bc033d
 md"""
 ## Erlang C, live
 
@@ -96,46 +98,57 @@ The closed-form results the engine has to agree with are part of the package:
 Change the number of servers and watch the waiting time collapse.
 """
 
-# ╔═╡ b7575c2d-f163-46aa-b0fd-c0e23dac4368
+# ╔═╡ 704a4583-719f-47b5-a213-be843a7d5114
 begin
 @bind servers Slider(1:8; default = 2, show_value = true)
 end
 
-# ╔═╡ 987a13cf-5b89-493d-bbcc-b065549beb22
+# ╔═╡ 6def799d-2c17-4b65-a5c9-3d4185461c2c
 begin
-λ = 1.6
-    rows = [theory(:mmc; λ = λ, μ = 0.5, c = c) for c in 1:Int(servers)]
+λ = 0.75
+    rows = [theory(:mmc; λ = λ, μ = 0.5, c = c) for c in 1:Int(servers)
+            if λ / (0.5 * c) < 1]                    # only the stable configurations
     table_html([SymDict(:servers => r[:c], :rho => r[:rho], :pw => r[:pw], :Lq => r[:Lq],
             :Wq => r[:Wq], :W => r[:W], :L => r[:L]) for r in rows],
         [:servers, :rho, :pw, :Lq, :Wq, :W, :L]) |> HTML
 end
 
-# ╔═╡ 76fbf873-06f9-4f31-b3bc-9b402ce83fdd
+# ╔═╡ 39709444-845e-4eaf-b36b-71b8a86c647b
 md"""
 ### The same system, simulated
 
-Four replications of the configuration on the slider, with the interval of the
-mean waiting time -- and the Erlang value for comparison. This is the check a
-simulation project should run on day one.
+The configuration on the slider, run `n` times, with the interval of the mean
+waiting time -- and Erlang C for comparison. A configuration whose offered load
+reaches the capacity (ρ ≥ 1) has no steady state, so the notebook says so instead
+of producing a number.
 """
 
-# ╔═╡ a9ca15f2-bddf-4db5-aa29-929deae8c19f
+# ╔═╡ bec259bb-ebd9-4eb8-bb09-63bfde12074e
 begin
 factor = model_params(:mmc, (arrival_rate = λ, service_rate = 0.5, servers = Int(servers)))
-    study = experiment(opts -> build_model(:mmc, factor, opts),
-        ExperimentConfig(replications = 6, horizon = 4000.0, warmup = 400.0); name = :mmc_live);
-    ci = metric_ci(study, :wait_mean)
-    theory_wq = theory(:mmc; λ = λ, μ = 0.5, c = Int(servers))[:Wq]
-    SymDict(:servers => Int(servers), :wait_mean => ci[:mean], :half_width => ci[:half_width],
-        :erlang_wq => theory_wq, :covered => ci[:lo] <= theory_wq <= ci[:hi])
+    stable = λ / (0.5 * Int(servers)) < 1
+    study = stable ? experiment(opts -> build_model(:mmc, factor, opts),
+        ExperimentConfig(replications = 6, horizon = 4000.0, warmup = 400.0);
+        name = :mmc_live) : nothing;
+    nothing
 end
 
-# ╔═╡ 3723dc60-be69-4da6-b927-af14337a48ed
+# ╔═╡ f72dba3f-eb12-4466-8cd5-d1fa6def475b
 begin
-fig_convergence(study)
+ci = study === nothing ? nothing : metric_ci(study, :wait_mean)
+    theory_wq = stable ? theory(:mmc; λ = λ, μ = 0.5, c = Int(servers))[:Wq] : NaN
+    SymDict(:servers => Int(servers), :rho => round(λ / (0.5 * Int(servers)), digits = 3),
+        :stable => stable, :wait_mean => ci === nothing ? NaN : ci[:mean],
+        :half_width => ci === nothing ? NaN : ci[:half_width], :erlang_wq => theory_wq,
+        :covered => ci === nothing ? false : ci[:lo] <= theory_wq <= ci[:hi])
 end
 
-# ╔═╡ 68206051-ca24-4716-b0be-aec8acf89db5
+# ╔═╡ 494666fe-4771-440d-a708-b041efc6350f
+begin
+study === nothing ? nothing : fig_convergence(study)
+end
+
+# ╔═╡ ea2447ac-7734-46eb-b8fe-dbab25cb34c4
 md"""
 ## The printout, and its PDF
 
@@ -145,13 +158,13 @@ with a headless browser: `reports/html/notebook_queues.html` and
 printout.
 """
 
-# ╔═╡ 9e502db8-1f7a-41ad-8bf3-83207b1493fc
+# ╔═╡ a3799f92-41b6-4f72-b9bd-3ae16eb652fa
 begin
 println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
     print_section_pdf(bundle, :queues; root = ROOT)
 end
 
-# ╔═╡ cdd166d2-a01f-489c-bdba-c3ed9bd4a7ca
+# ╔═╡ 85feb516-84f8-4d79-9e5a-c8249afbfd12
 md"""
 ---
 *Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
@@ -160,22 +173,23 @@ md"""
 """
 
 # ╔═╡ Cell order:
-# ╠═97e13ff1-ee9c-4341-a686-92aecf6698f2
-# ╠═ac6c93b6-16dd-43e8-9330-d3f12cd04ca4
-# ╠═0a4f1d00-a3ef-4665-9bb0-50b81490a675
-# ╠═9bab330e-18d1-4785-a11a-bd999e89b4ef
-# ╠═0c8ebdd8-c572-4235-bf42-13f7cef8bb60
-# ╠═c5c76bc7-6af8-4901-b8e1-eb6771469373
-# ╠═847d5d1d-b5aa-4966-b7ad-f78c92d46c7b
-# ╠═e5e7a70d-b863-4e6e-abc7-1739b7485749
-# ╠═0a329c33-a261-4e1f-8f40-996041611a2b
-# ╠═24033bd6-915e-4c36-8759-769ed91ef6c1
-# ╠═fd9ded5e-ac33-438e-a1ce-e00eca4517f2
-# ╠═b7575c2d-f163-46aa-b0fd-c0e23dac4368
-# ╠═987a13cf-5b89-493d-bbcc-b065549beb22
-# ╠═76fbf873-06f9-4f31-b3bc-9b402ce83fdd
-# ╠═a9ca15f2-bddf-4db5-aa29-929deae8c19f
-# ╠═3723dc60-be69-4da6-b927-af14337a48ed
-# ╠═68206051-ca24-4716-b0be-aec8acf89db5
-# ╠═9e502db8-1f7a-41ad-8bf3-83207b1493fc
-# ╠═cdd166d2-a01f-489c-bdba-c3ed9bd4a7ca
+# ╠═c01f9cb4-de62-4fa9-9302-58f9229f80ce
+# ╠═1087580c-72b6-4cc9-9dec-054370f6eb65
+# ╠═d0508f3e-b88b-4b56-b038-6b28daf6cf58
+# ╠═ed196837-c632-4bda-82cc-13a54101174e
+# ╠═e465cbef-c8f4-4f12-8da9-245f79029236
+# ╠═52c27014-5710-4454-b536-348605ea02b4
+# ╠═21de28ac-2a1e-4a18-aeef-a5effd04cec7
+# ╠═e3494fc0-985a-4325-b2af-01e9859ca1bc
+# ╠═ff17cd30-bd3c-4896-a989-a4c1942d811e
+# ╠═4252acb7-5802-4673-8fee-a47c298c69c7
+# ╠═26a29d00-13ab-4d64-a956-3fa9d1bc033d
+# ╠═704a4583-719f-47b5-a213-be843a7d5114
+# ╠═6def799d-2c17-4b65-a5c9-3d4185461c2c
+# ╠═39709444-845e-4eaf-b36b-71b8a86c647b
+# ╠═bec259bb-ebd9-4eb8-bb09-63bfde12074e
+# ╠═f72dba3f-eb12-4466-8cd5-d1fa6def475b
+# ╠═494666fe-4771-440d-a708-b041efc6350f
+# ╠═ea2447ac-7734-46eb-b8fe-dbab25cb34c4
+# ╠═a3799f92-41b6-4f72-b9bd-3ae16eb652fa
+# ╠═85feb516-84f8-4d79-9e5a-c8249afbfd12

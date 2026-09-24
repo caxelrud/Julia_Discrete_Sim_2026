@@ -229,6 +229,25 @@ layer, the printout and the PDF printing, the notebooks (static checks, plus a
 headless Pluto run when `DISCRETESIM_TEST_PLUTO=true`) and the pipeline with a
 `study_json`/`load_study` round trip.
 
+## Publishing
+
+The repository is `https://github.com/caxelrud/Julia_Discrete_Sim_2026` and the
+branch is `main`:
+
+```sh
+git add -A
+git commit -m "message"
+git push
+```
+
+To refresh the published artefacts (data, figures, printouts and PDFs) before
+pushing:
+
+```sh
+julia --project=. scripts/run_study.jl --parallel
+julia --project=. scripts/run_notebooks.jl --no-save
+```
+
 ## License
 
 MIT -- see `LICENSE`.

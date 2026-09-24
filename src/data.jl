@@ -295,13 +295,13 @@ function kolmogorov_q(λ::Real)
 end
 
 """
-    best_fit(x, kinds) -> SymDict
+    best_fit(x; kinds = (:exponential, :lognormal, :gamma, :weibull, :normal)) -> SymDict
 
 Fit several families to one series and return the one with the smallest
 Kolmogorov--Smirnov statistic (ties broken by the AIC), with the whole ranking in
 `:ranking` and every candidate in `:candidates`.
 """
-function best_fit(x::AbstractVector{<:Real},
+function best_fit(x::AbstractVector{<:Real};
     kinds = (:exponential, :lognormal, :gamma, :weibull, :normal))
     records = SymDict[]
     for k in kinds
@@ -345,7 +345,7 @@ function calibrate(h::PlantHistory; families = (:exponential, :lognormal, :gamma
     for key in history_keys(h)
         x = history_series(h, key)
         length(x) >= 5 || continue
-        d[key] = best_fit(x, families)
+        d[key] = best_fit(x; kinds = families)
     end
     d[:parameters] = inferred_parameters(d)
     return d

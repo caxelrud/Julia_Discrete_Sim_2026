@@ -328,7 +328,7 @@ function run_notebook_impl(pluto, path::String, passes::Int, save::Bool)
     nb = pluto.SessionActions.open(session, path; run_async = false)
     errors = Any[]
     for _ in 1:passes
-        pluto.update_save_run!(session, nb, nb.cells; run_async = false)
+        pluto.update_save_run!(session, nb, nb.cells; run_async = false, save = save)
         errors = [(i, c.output.body) for (i, c) in enumerate(nb.cells) if c.errored]
         isempty(errors) && break
     end

@@ -14,7 +14,7 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 333e35e6-d4af-46ab-8f69-e14920dbca29
+# ╔═╡ ddaa7791-7a71-4aa7-a8d1-7fcfac7ab4b4
 md"""
 # Offline first, online for periodic reevaluation
 
@@ -27,7 +27,7 @@ cell. Nothing here is a copy of a number typed by hand -- every value comes from
 the bundle, and the bundle comes from `scripts/run_study.jl`.
 """
 
-# ╔═╡ a6dc70e4-7635-47fe-a763-e7ee8eff459e
+# ╔═╡ 9763d229-2881-41df-b784-ed0301bc579d
 md"""
 ## The environment
 
@@ -37,13 +37,13 @@ explicitly means the notebook runs the same environment interactively and headle
 (`scripts/run_notebooks.jl`), with no package installation in the middle.
 """
 
-# ╔═╡ 2ded2965-e509-4af2-9c0d-89578794b789
+# ╔═╡ e24aff4f-254a-491f-8c9a-2d0d5bf496c5
 begin
 import Pkg
     Pkg.activate(@__DIR__)
 end
 
-# ╔═╡ afe119ea-051b-495a-8a7f-14f84d7fca77
+# ╔═╡ bc479d34-b8eb-44d9-ab26-67d08aaf77bf
 begin
 using DiscreteSim
     using PlutoUI
@@ -53,12 +53,12 @@ using DiscreteSim
     using Dates
 end
 
-# ╔═╡ ede5abc5-7cbb-4fec-bc18-ee97f87a7f68
+# ╔═╡ c676ea5e-de15-4d96-8cd0-52eccbcd8e16
 begin
 ROOT = dirname(@__DIR__)
 end
 
-# ╔═╡ ce61b177-68c8-48b6-a781-0bd242f32a42
+# ╔═╡ b9edc3fc-92ec-4304-a12c-634cbc50cb86
 md"""
 ## The study, loaded from disk
 
@@ -67,27 +67,27 @@ symbol-keyed records the package uses, so the notebook and the printed report
 show the same numbers without re-running the study.
 """
 
-# ╔═╡ d7c1b360-226e-49a3-b7a8-1a483d43b80b
+# ╔═╡ 78d25ded-5344-406c-af7f-e509b316cbbc
 begin
 bundle = load_study(ROOT);
 end
 
-# ╔═╡ 301e469b-de94-4bfe-9740-ab10c5f54d6f
+# ╔═╡ c3b1d149-215d-4255-82b0-f2798a0140f7
 begin
 TableOfContents()
 end
 
-# ╔═╡ bd68f55c-3155-4d0e-ad87-b49a8ad41d8a
+# ╔═╡ f528082e-506e-4c17-a615-2ab6cb2a2842
 md"""
 ## The section: *Online*
 """
 
-# ╔═╡ 03611bca-1bcb-41b3-9fcb-7c81d3d9f16b
+# ╔═╡ 8f00703d-6faa-47bc-85d0-8d3c591cc7db
 begin
 HTML(preview_section(bundle, :online))
 end
 
-# ╔═╡ 4b5b12a1-7ad3-4758-ab6f-81b5e1046f02
+# ╔═╡ fda3800b-4aa9-415e-92cc-cc040be164a7
 md"""
 ## The fallback chain, live
 
@@ -96,7 +96,7 @@ the online source, the local copy of the same feed, the last cached reply, and
 finally offline with whatever the model already knows.
 """
 
-# ╔═╡ 315e3056-d670-4861-b634-11a2adc45b2c
+# ╔═╡ a47cd416-e3e7-420a-b3d1-e9fce95a6d3d
 begin
 reachable = fetch_online(OnlineConfig())
     SymDict(:url => reachable[:url], :status => reachable[:status], :source => reachable[:source],
@@ -104,7 +104,7 @@ reachable = fetch_online(OnlineConfig())
         :age_days => get(reachable, :age_days, NaN))
 end
 
-# ╔═╡ 9d2687c4-52a8-4426-a445-827da54e6f25
+# ╔═╡ 572817ec-3e09-41db-9d0c-840245f896c5
 begin
 feed_file = joinpath(ROOT, "data", "online_feed.json")
     blocked = fetch_online(OnlineConfig(url = "http://127.0.0.1:9/nothing",
@@ -115,7 +115,7 @@ feed_file = joinpath(ROOT, "data", "online_feed.json")
         :series => counts === nothing ? 0 : length(counts))
 end
 
-# ╔═╡ bf4fd19b-be2b-461a-96b3-7e8e018c06eb
+# ╔═╡ b4bade80-4628-4ba4-81a6-ebbe30caf89f
 begin
 offline = fetch_online(OnlineConfig(url = "http://127.0.0.1:9/nothing",
         local_file = joinpath(ROOT, "data", "missing.json"), timeout = 1.0, retries = 0,
@@ -124,7 +124,7 @@ offline = fetch_online(OnlineConfig(url = "http://127.0.0.1:9/nothing",
         :freshness => offline[:freshness])
 end
 
-# ╔═╡ 27b02e61-5b9d-493a-abad-0a70eb122646
+# ╔═╡ 6ee4356e-713d-4bb8-8278-3e0fc5866a26
 md"""
 ## The decision the feed justifies
 
@@ -134,24 +134,24 @@ Kolmogorov--Smirnov test per series) and writes a verdict. The log is the audit
 trail: when the model was checked, against what, and what was decided.
 """
 
-# ╔═╡ fc77d23e-89c7-4a74-b4ec-1438822c8abc
+# ╔═╡ dc5cbf39-b5b7-4af3-8a46-f719fccc9648
 begin
-record = reevaluate(bundle[:calibration]; history = bundle[:history],
-        cfg = OnlineConfig(local_file = feed_file), model = Sym(get(bundle, :model, :mmc)),
-        plan = ReevaluationPlan(7, :days), log_path = joinpath(ROOT, "data", "reevaluation_log.json"));
+record = reevaluate(bundle[:calibration]; cfg = OnlineConfig(local_file = feed_file),
+        model = Sym(get(bundle, :model, :mmc)), plan = ReevaluationPlan(7, :days),
+        log_path = joinpath(ROOT, "data", "reevaluation_log.json"));
     SymDict(:verdict => record[:verdict], :reason => record[:reason],
         :source => record[:source], :worst_change => record[:worst_change],
         :ks_tests => length(record[:ks]))
 end
 
-# ╔═╡ e1512072-9d08-4847-9c5d-29fc9127e51f
+# ╔═╡ 7dad8973-099f-4bdd-b149-a565449a32aa
 begin
 log_rows = reevaluation_log(joinpath(ROOT, "data", "reevaluation_log.json"))
     (last = isempty(log_rows) ? SymDict(:note => :empty) : feed_row(log_rows[end]),
         entries = length(log_rows))
 end
 
-# ╔═╡ 69d991a4-cbe8-48c3-9d63-f744c8a58ec3
+# ╔═╡ ee34c746-0774-48e3-bb3d-f4d790ba14a0
 begin
 plan = ReevaluationPlan(7, :days)
     SymDict(:plan => describe_plan(plan), :days => plan_days(plan),
@@ -159,7 +159,7 @@ plan = ReevaluationPlan(7, :days)
         :due_after_30_days => due(plan, timestamp(Dates.now() - Dates.Day(30)), timestamp()))
 end
 
-# ╔═╡ 1ea320e9-875f-4b63-88ed-62e547cfeeed
+# ╔═╡ 6375bc52-1ce9-452f-984b-9c7f544781b5
 md"""
 ## The printout, and its PDF
 
@@ -169,13 +169,13 @@ with a headless browser: `reports/html/notebook_online.html` and
 printout.
 """
 
-# ╔═╡ 74075d75-9030-4b53-83ce-a90850ae5615
+# ╔═╡ 21e79a43-685d-480a-b930-25ff1dc22539
 begin
 println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
     print_section_pdf(bundle, :online; root = ROOT)
 end
 
-# ╔═╡ 9899beec-1c27-4cdc-acdb-954dace459bd
+# ╔═╡ 94c7e0ea-d4d7-4365-b98c-e135c70ff323
 md"""
 ---
 *Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
@@ -184,24 +184,24 @@ md"""
 """
 
 # ╔═╡ Cell order:
-# ╠═333e35e6-d4af-46ab-8f69-e14920dbca29
-# ╠═a6dc70e4-7635-47fe-a763-e7ee8eff459e
-# ╠═2ded2965-e509-4af2-9c0d-89578794b789
-# ╠═afe119ea-051b-495a-8a7f-14f84d7fca77
-# ╠═ede5abc5-7cbb-4fec-bc18-ee97f87a7f68
-# ╠═ce61b177-68c8-48b6-a781-0bd242f32a42
-# ╠═d7c1b360-226e-49a3-b7a8-1a483d43b80b
-# ╠═301e469b-de94-4bfe-9740-ab10c5f54d6f
-# ╠═bd68f55c-3155-4d0e-ad87-b49a8ad41d8a
-# ╠═03611bca-1bcb-41b3-9fcb-7c81d3d9f16b
-# ╠═4b5b12a1-7ad3-4758-ab6f-81b5e1046f02
-# ╠═315e3056-d670-4861-b634-11a2adc45b2c
-# ╠═9d2687c4-52a8-4426-a445-827da54e6f25
-# ╠═bf4fd19b-be2b-461a-96b3-7e8e018c06eb
-# ╠═27b02e61-5b9d-493a-abad-0a70eb122646
-# ╠═fc77d23e-89c7-4a74-b4ec-1438822c8abc
-# ╠═e1512072-9d08-4847-9c5d-29fc9127e51f
-# ╠═69d991a4-cbe8-48c3-9d63-f744c8a58ec3
-# ╠═1ea320e9-875f-4b63-88ed-62e547cfeeed
-# ╠═74075d75-9030-4b53-83ce-a90850ae5615
-# ╠═9899beec-1c27-4cdc-acdb-954dace459bd
+# ╠═ddaa7791-7a71-4aa7-a8d1-7fcfac7ab4b4
+# ╠═9763d229-2881-41df-b784-ed0301bc579d
+# ╠═e24aff4f-254a-491f-8c9a-2d0d5bf496c5
+# ╠═bc479d34-b8eb-44d9-ab26-67d08aaf77bf
+# ╠═c676ea5e-de15-4d96-8cd0-52eccbcd8e16
+# ╠═b9edc3fc-92ec-4304-a12c-634cbc50cb86
+# ╠═78d25ded-5344-406c-af7f-e509b316cbbc
+# ╠═c3b1d149-215d-4255-82b0-f2798a0140f7
+# ╠═f528082e-506e-4c17-a615-2ab6cb2a2842
+# ╠═8f00703d-6faa-47bc-85d0-8d3c591cc7db
+# ╠═fda3800b-4aa9-415e-92cc-cc040be164a7
+# ╠═a47cd416-e3e7-420a-b3d1-e9fce95a6d3d
+# ╠═572817ec-3e09-41db-9d0c-840245f896c5
+# ╠═b4bade80-4628-4ba4-81a6-ebbe30caf89f
+# ╠═6ee4356e-713d-4bb8-8278-3e0fc5866a26
+# ╠═dc5cbf39-b5b7-4af3-8a46-f719fccc9648
+# ╠═7dad8973-099f-4bdd-b149-a565449a32aa
+# ╠═ee34c746-0774-48e3-bb3d-f4d790ba14a0
+# ╠═6375bc52-1ce9-452f-984b-9c7f544781b5
+# ╠═21e79a43-685d-480a-b930-25ff1dc22539
+# ╠═94c7e0ea-d4d7-4365-b98c-e135c70ff323
