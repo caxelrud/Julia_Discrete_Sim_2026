@@ -136,7 +136,9 @@ function analysis_bundle(cfg::PipelineConfig = PipelineConfig())
             name = name)
         run = run_replication(opts -> build_model(name, params, opts), config, 1)
         samples[name] = run
-        validations[name] = validate_model(run, name, params)
+        ## validate against the *mean of the replications*, not one run
+        validations[name] = validate_model(run, name, params;
+            observed = observed_from_experiment(experiments[name]))
     end
     featured = cfg.featured
     featured_params = model_params_from_calibration(calibration, featured)

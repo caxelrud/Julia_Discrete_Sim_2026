@@ -191,6 +191,25 @@ function metric_series(res::ExperimentResult, key::Symbol)
     return Float64[row[k] for row in res.per_replication if haskey(row, k)]
 end
 
+"""
+    observed_from_experiment(res) -> SymDict
+
+The queueing numbers of a set of replications, averaged: what a *study* should be
+validated against, since one run is autocorrelated and a mean of replications is
+not.
+"""
+function observed_from_experiment(res::ExperimentResult)
+    d = SymDict()
+    for (key, target) in ((:wait_mean, :wait), (:queue_length_mean, :queue_length),
+        (:utilisation, :utilisation), (:service_mean, :service))
+        ci = metric_ci(res, key)
+        ci === nothing || (d[target] = ci[:mean])
+    end
+    ci = metric_ci(res, :completed)
+    ci === nothing || (d[:requests] = ci[:mean])
+    return d
+end
+
 """Every metric an experiment measured."""
 metric_keys(res::ExperimentResult) = Symbol[k for k in keys(res.summary)]
 

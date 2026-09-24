@@ -282,10 +282,11 @@ function Histogram(metric::Symbol, edges::AbstractVector{<:Real}; unit = :count)
     return Histogram(Sym(metric), Sym(unit), e, zeros(Int, length(e) - 1), 0, 0)
 end
 
-Histogram(metric::Symbol, lo::Real, hi::Real, bins::Integer = 10; kwargs...) =
-    (bins >= 1 || throw(ArgumentError("a histogram needs at least one bin")),
-     Histogram(metric, collect(range(Float64(lo), Float64(hi); length = Int(bins) + 1));
-         kwargs...))
+function Histogram(metric::Symbol, lo::Real, hi::Real, bins::Integer = 10; kwargs...)
+    bins >= 1 || throw(ArgumentError("a histogram needs at least one bin"))
+    return Histogram(metric, collect(range(Float64(lo), Float64(hi);
+        length = Int(bins) + 1)); kwargs...)
+end
 
 """Bin a value: the index of the bin, `0` for underflow, `length(counts)+1` for overflow."""
 function bin_index(h::Histogram, x::Real)

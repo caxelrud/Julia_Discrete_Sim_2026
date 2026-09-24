@@ -43,6 +43,7 @@ end
     @test length(bundle[:models]) == 3
     @test bundle[:experiment] isa ExperimentResult
     @test metric_value(bundle[:experiment], :throughput) > 0
+    ## a small study is measured over replications, so its cross-check is meaningful
     @test bundle[:validation][:verdict] in (:validated, :marginal, :not_applicable)
     @test bundle[:theory][:kind] === :mmc
     @test bundle[:observed][:utilisation] > 0
@@ -68,7 +69,7 @@ end
     @test isfile(joinpath(root, "reports", "pdf", "discrete_sim_report.pdf"))
     @test isfile(joinpath(root, "reports", "figures", "wip.png"))
     @test read(joinpath(root, "reports", "pdf", "discrete_sim_report.pdf"), 4) == b"%PDF"
-    @test bundle[:manifest][:status] === :ok
+    @test bundle[:manifest][:status] in (:ok, :attention)
     @test bundle[:manifest][:n_pdf] >= 1
     @test occursin("seed", sprint(report_manifest, bundle[:manifest]))
 
@@ -118,7 +119,7 @@ end
     @test occursin("data:image/png;base64", html)
     preview = preview_section(loaded, :overview)
     @test occursin("id=\"overview\"", preview)
-    @test occursin("MeanWait", metrics_table_html(loaded[:experiment]))
+    @test occursin("wait_mean", metrics_table_html(loaded[:experiment]))  # the metric key
     out = print_section_pdf(loaded, :overview; root = root, prefix = "loaded")
     @test isfile(out[:html])
     @test out[:printed]

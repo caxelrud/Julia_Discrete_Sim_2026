@@ -34,7 +34,10 @@ argument, the `CHROME_PATH` environment variable, the platform `PATH`, then the
 known installation directories.
 """
 function find_chrome(; explicit::Union{Nothing,AbstractString} = nothing)
-    explicit !== nothing && isfile(String(explicit)) && return String(explicit)
+    if explicit !== nothing
+        isfile(String(explicit)) && return String(explicit)
+        throw(ArgumentError("the browser given explicitly is not there: $explicit"))
+    end
     from_env = get(ENV, "CHROME_PATH", "")
     !isempty(from_env) && isfile(from_env) && return from_env
     for name in ("chrome", "google-chrome", "chromium", "chromium-browser", "msedge")

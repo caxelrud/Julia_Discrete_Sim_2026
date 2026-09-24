@@ -10,7 +10,7 @@
         "worst_change": 0.04685418052903213,
         "model": "machine_shop",
         "payload_bytes": 165884,
-        "at": "2026-09-24T04:45:49",
+        "at": "2026-09-24T06:27:51",
         "freshness": "unknown",
         "plan": "every 7 days",
         "parameters": {
@@ -59,7 +59,7 @@
             "service_cv2": 0.21487911048902245
         },
         "feed": {
-            "now": "2026-09-24T04:45:49",
+            "now": "2026-09-24T06:27:51",
             "observations": {
                 "failure_interval": [
                     31.331722870803677,
@@ -8862,7 +8862,7 @@
                     18.47868122639156
                 ]
             },
-            "fetched_at": "2026-09-24T09:45:47",
+            "fetched_at": "2026-09-24T11:27:49",
             "policy": "offline_first",
             "attempts": 2,
             "error": "TypeError: in keyword argument connect_timeout, expected Int64, got a value of type Float64",

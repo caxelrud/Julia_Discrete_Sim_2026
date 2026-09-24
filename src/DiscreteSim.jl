@@ -148,7 +148,7 @@ export ExperimentConfig, ExperimentResult, experiment, run_replication, run_opti
     metric_keys, metric_table, replications_table, describe_experiment, warmup_analysis,
     batch_means, interpolate_series, sweep, sweep_rows, sweep_matrix, compare_scenarios,
     paired_comparison, factorial_design, factorial_rows, effect_row,
-    metric_of_statistic, STATISTIC_METRIC_MAP
+    metric_of_statistic, STATISTIC_METRIC_MAP, observed_from_experiment
 
 # models
 export MODELS, MODEL_CATALOGUE, SCENARIOS, catalogue, default_params, model_params,

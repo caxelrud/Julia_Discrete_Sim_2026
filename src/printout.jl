@@ -92,12 +92,13 @@ end
 
 """Format a value with its unit (`12.4 /h` rather than `12.4 items_per_hour`)."""
 function fmt_metric(value::Real, unit::Symbol)
-    suffix = unit === :items_per_hour ? " /h" :
-             unit === :items_per_day ? " /d" :
-             unit === :per_hour ? " /h" :
-             unit === :ratio ? "" :
-             unit === :percent ? "%" :
-             unit === :currency ? " \$" : string(" ", code_string(unit))
+    u = Sym(unit)
+    suffix = u === :items_per_hour ? " /h" :
+             u === :items_per_day ? " /d" :
+             u === :per_hour ? " /h" :
+             u in (:ratio, :none) ? "" :
+             u === :percent ? "%" :
+             u === :currency ? " \$" : string(" ", code_string(u))
     return string(fmt_number(value), suffix)
 end
 
@@ -298,8 +299,7 @@ function metrics_table_html(res::ExperimentResult; only = nothing)
     end
     return table_html(rows, [:metric, :mean, :half_width, :unit, :rel_hw_pct];
         caption = string(code_string(res.name), " over ", res.config.replications,
-            " replications"),
-        units = Dict{Symbol,Symbol}(:mean => :none, :half_width => :none))
+            " replications"))
 end
 
 """The resource table of one run: queueing performance of every resource."""

@@ -197,16 +197,23 @@ end
 ## `Empirical` was removed from `Distributions`, so the empirical family is a
 ## `DiscreteNonParametric` with equal weights: sampling from it resamples the
 ## observations, and its `cdf` is the step function the data implies.
-_dist(kind::Symbol, values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}) =
-    Sym(kind) in (:empirical, :empirical_continuous) ?
-        Distributions.DiscreteNonParametric(collect(Float64, values),
-            collect(Float64, weights)) :
-    Sym(kind) === :discrete ?
-        Distributions.DiscreteNonParametric(collect(Float64, values),
-            collect(Float64, weights)) :
-    Sym(kind) === :categorical ? Distributions.Categorical(collect(Float64, weights)) :
-    throw(ArgumentError("dist(:$(Sym(kind)), values, weights) is only defined for " *
-                        ":empirical, :discrete and :categorical"))
+"""Weights of a discrete distribution, normalised (any positive weights will do)."""
+function _normalised(weights::AbstractVector{<:Real})
+    w = collect(Float64, weights)
+    total = sum(w)
+    total > 0 || throw(ArgumentError("the weights of a discrete distribution must sum > 0"))
+    return w ./ total
+end
+    _dist(kind::Symbol, values::AbstractVector{<:Real}, weights::AbstractVector{<:Real}) =
+        Sym(kind) in (:empirical, :empirical_continuous) ?
+            Distributions.DiscreteNonParametric(collect(Float64, values),
+                _normalised(weights)) :
+        Sym(kind) === :discrete ?
+            Distributions.DiscreteNonParametric(collect(Float64, values),
+                _normalised(weights)) :
+        Sym(kind) === :categorical ? Distributions.Categorical(_normalised(weights)) :
+        throw(ArgumentError("dist(:$(Sym(kind)), values, weights) is only defined for " *
+                            ":empirical, :discrete and :categorical"))
 
 """The empirical distribution of a sample: equal weights on every observation."""
 _dist(kind::Symbol, values::AbstractVector{<:Real}) =
@@ -234,6 +241,8 @@ function dist(spec::Union{AbstractDict,NamedTuple})
     if kind === :empirical || kind === :empirical_continuous
         length(params) == 1 && return dist(kind, Float64.(collect(params[1])))
         return dist(kind, Float64.(collect(params[1])), Float64.(collect(params[2])))
+    elseif kind === :categorical && length(params) == 1 && params[1] isa AbstractVector
+        return dist(:categorical, Float64.(collect(params[1])))
     elseif kind === :discrete && length(params) == 2 && params[1] isa AbstractVector
         return dist(kind, Float64.(collect(params[1])), Float64.(collect(params[2])))
     end

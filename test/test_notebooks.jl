@@ -31,14 +31,14 @@
 end
 
 @testset "validating the shipped notebooks" begin
-    results = validate_notebooks(joinpath(pwd(), "notebooks"))
+    results = validate_notebooks(joinpath(dirname(@__DIR__), "notebooks"))
     @test length(results) == 8
     @test all(r -> r.ok, results)
     @test all(r -> r.printout_cells > 0, results)
     @test all(r -> r.code_cells > 5, results)
     @test all(r -> r.markdown_cells > 3, results)
-    @test first(results).notebook === :"00_Study_Overview.jl"
-    @test results[2].notebook === :"01_The_Engine.jl"
+    @test string(first(results).notebook) == "00_Study_Overview.jl"
+    @test string(results[2].notebook) == "01_The_Engine.jl"
     @test sort(string.(getfield.(results, :notebook))) ==
           sort(["00_Study_Overview.jl", "01_The_Engine.jl", "02_Queues_and_Capacity.jl",
         "03_The_Models.jl", "04_Experiments_and_Confidence.jl", "05_Calibration.jl",
@@ -53,13 +53,14 @@ end
     end
     report = validate_notebook(bad)
     @test !report.ok
+    @test !isempty(report.problems)
+    @test any(p -> occursin("printout", p), report.problems)
     @test any(p -> occursin("Cell order", p), report.problems)
-    @test any(p -> occursin("print_section_pdf", p), report.problems)
     @test report.cells == 1
     @test occursin("FAIL", sprint(print_validation_report, [report]))
 
     ## the file listing is in reading order and skips backups
-    files = notebook_files(joinpath(pwd(), "notebooks"))
+    files = notebook_files(joinpath(dirname(@__DIR__), "notebooks"))
     @test length(files) == 8
     @test basename(files[1]) == "00_Study_Overview.jl"
     @test all(f -> endswith(f, ".jl"), files)

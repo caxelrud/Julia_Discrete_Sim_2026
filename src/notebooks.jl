@@ -89,6 +89,7 @@ function bound_name(x)
     x.head === :ref && n >= 1 && return bound_name(x.args[1])
     x.head === :tuple && n >= 1 && return bound_name(x.args[1])
     x.head === :. && n >= 2 && return bound_name(x.args[2])
+    x.head === :. && n == 1 && return bound_name(x.args[1])   # `using X` wraps X alone
     return :none
 end
 
@@ -286,6 +287,9 @@ function print_validation_report(results; io::IO = stdout)
     println(io, "\n", ok, " / ", length(results), " notebooks valid")
     return io
 end
+
+"""`print_validation_report(io, results)`, for `sprint` and other IO-first callers."""
+print_validation_report(io::IO, results) = print_validation_report(results; io = io)
 
 ## ---- running them headless -------------------------------------------------------
 

@@ -1043,17 +1043,17 @@ against Little's law on its busiest resource. The verdict (`:validated`,
 the report prints.
 """
 function validate_model(σ::Sim, name::Symbol, params::AbstractDict;
-    tolerance::Real = 0.10, resource::Symbol = model_resource(name))
+    tolerance::Real = 0.10, resource::Symbol = model_resource(name), observed = nothing)
     k = Sym(name)
     k === :inventory && return inventory_validation(σ;
         demand_size = Float64(get(params, :demand_size, 12.0)), tolerance = tolerance)
     theo = model_theory(k, params)
     if theo !== nothing && haskey(σ.resources, resource)
-        obs = observed_summary(σ, resource)
+        obs = observed === nothing ? observed_summary(σ, resource) : SymDict(observed)
         res = validate_against_theory(obs, theo;
             key_map = [:wait => :Wq, :queue_length => :Lq, :utilisation => :utilisation],
             tolerance = tolerance, label = k)
-        iszero(obs[:requests]) && (res[:verdict] = :not_applicable)
+        iszero(get(obs, :requests, 0)) && (res[:verdict] = :not_applicable)
         res[:observed] = obs
         return res
     end

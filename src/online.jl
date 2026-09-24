@@ -398,6 +398,12 @@ Base.@kwdef struct ReevaluationPlan
     unit::Symbol = :days
 end
 
+"""Build a plan from a symbol-keyed record (`SymDict(:every => 1, :unit => :weeks)`)."""
+function ReevaluationPlan(d::AbstractDict)
+    known = Set{Symbol}(fieldnames(ReevaluationPlan))
+    return ReevaluationPlan(; (Sym(k) => v for (k, v) in d if Sym(k) in known)...)
+end
+
 """Length of a plan in days (every unit is expressed in days)."""
 plan_days(plan::ReevaluationPlan) =
     plan.unit === :weeks ? 7 * plan.every :
