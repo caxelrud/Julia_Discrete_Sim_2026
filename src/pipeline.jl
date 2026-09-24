@@ -229,10 +229,6 @@ function analysis_bundle(cfg::PipelineConfig = PipelineConfig())
     end
 
     ## ---- the artefacts of the printouts ------------------------------------------
-    if cfg.export_data
-        push!(artifacts[:data], write_json_payload(joinpath(data_dir, "analysis.json"),
-            study_json(bundle)))
-    end
     if cfg.render_pdf
         full = print_report_pdf(bundle; root = cfg.root, chrome = cfg.chrome,
             to_pdf = true)
@@ -244,6 +240,12 @@ function analysis_bundle(cfg::PipelineConfig = PipelineConfig())
                 out[:printed] && push!(artifacts[:pdf], out[:pdf])
             end
         end
+    end
+
+    ## the JSON of the study is written last, so its artefact list is complete
+    if cfg.export_data
+        push!(artifacts[:data], write_json_payload(joinpath(data_dir, "analysis.json"),
+            study_json(bundle)))
     end
 
     bundle[:manifest] = manifest_of(cfg, bundle, artifacts)

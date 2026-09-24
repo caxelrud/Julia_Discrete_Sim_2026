@@ -1,17 +1,23 @@
 ### A Pluto.jl notebook ###
-# v0.20.23
+# v1.0.3
 
 using Markdown
 using InteractiveUtils
 
-# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
-macro bind(def, element)
-    quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-        el
-    end
+# ╔═╡ 1f3781cf-c2fd-4e52-a34b-5e2642a67ab6
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ bb3aea0b-fd69-47ac-969b-e86e19660898
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
 end
 
 # ╔═╡ 6b5e253c-83d0-426d-925d-8828fd99ddcb
@@ -36,22 +42,6 @@ repository, developed in place) together with `PlutoUI` and `Plots`. Activating 
 explicitly means the notebook runs the same environment interactively and headless
 (`scripts/run_notebooks.jl`), with no package installation in the middle.
 """
-
-# ╔═╡ 1f3781cf-c2fd-4e52-a34b-5e2642a67ab6
-begin
-import Pkg
-    Pkg.activate(@__DIR__)
-end
-
-# ╔═╡ bb3aea0b-fd69-47ac-969b-e86e19660898
-begin
-using DiscreteSim
-    using PlutoUI
-    using Plots
-    using Statistics
-    using Printf
-    using Dates
-end
 
 # ╔═╡ 11c3d7b5-02ff-43fe-85ef-f0130ab5d4ad
 begin
