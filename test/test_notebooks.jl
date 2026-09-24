@@ -45,6 +45,29 @@ end
         "06_Offline_and_Online.jl", "07_Artefacts_and_PDF.jl"])
     @test all(r -> isempty(r.problems), results)
 
+    ## a markdown cell that interpolates inside a code span shows the expression,
+    ## not its value: Julia's md"..." leaves `$` alone between backticks
+    @test literal_interpolations("md\"\"\"\nseed `\$(get(b, :seed, 0))` end\n\"\"\"") ==
+          ["`\$(get(b, :seed, 0))`"]
+    @test isempty(literal_interpolations("md\"\"\"\nseed \$(x) outside\n\"\"\""))
+    @test isempty(literal_interpolations("begin\n    x = \"\$(y)\"\nend"))
+    literal = joinpath(TEST_TMP, "literal.jl")
+    open(literal, "w") do io
+        write(io, "### A Pluto.jl notebook ###\n\nusing Markdown\n\n")
+        write(io, "# ", Char(0x2554), Char(0x2550), Char(0x2561),
+            " c1\nbegin\n    HTML(\"<p>x</p>\")\nend\n\n")
+        write(io, "# ", Char(0x2554), Char(0x2550), Char(0x2561),
+            " c2\nmd\"\"\"\nseed `\$(value)`\n\"\"\"\n\n")
+        write(io, "# ", Char(0x2554), Char(0x2550), Char(0x2561),
+            " c3\nbegin\n    print_section_pdf(bundle, :overview)\nend\n\n")
+        write(io, "# ", Char(0x2554), Char(0x2550), Char(0x2561),
+            " Cell order:\n# ", Char(0x2560), Char(0x2550), "c1\n# ",
+            Char(0x2560), Char(0x2550), "c2\n# ", Char(0x2560), Char(0x2550), "c3\n")
+    end
+    shown = validate_notebook(literal; known = Set([:bundle]))
+    @test !shown.ok
+    @test any(p -> occursin("interpolates inside a code span", p), shown.problems)
+
     ## a notebook with a problem is reported with the reason
     bad = joinpath(TEST_TMP, "bad.jl")
     open(bad, "w") do io

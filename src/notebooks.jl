@@ -57,6 +57,26 @@ end
 """`true` when the cell body is a Markdown cell (`md"..."`)."""
 is_markdown_cell(code::AbstractString) = startswith(code, "md\"\"\"")
 
+"""
+    literal_interpolations(cell::AbstractString) -> Vector{String}
+
+The `\$` expressions a markdown cell shows *literally* instead of computing.
+
+Julia's `md"..."` interpolates exactly like a string, except inside code spans and
+fenced blocks -- there a `\$` belongs to the code. A cell that writes `` `\$(x)` ``
+therefore prints `\$(x)` rather than the value of `x`, which is a subtle way for a
+notebook to tell the reader something that is not true, so the validator reports it.
+"""
+function literal_interpolations(cell::AbstractString)
+    body = String(strip(cell))
+    startswith(body, "md\"\"\"") && (body = String(body[6:end]))
+    endswith(body, "\"\"\"") && (body = String(body[1:end-3]))
+    found = String[]
+    for m in eachmatch(r"`[^`\n]*`", body)
+        occursin("\$(", m.match) && push!(found, m.match)
+    end
+    return found
+end
 """Cell ids listed in the `Cell order` section of the file."""
 function cell_order_section(lines::Vector{String})
     ids = String[]
@@ -259,6 +279,14 @@ function validate_notebook(path::AbstractString; known::Set{Symbol} = known_note
     end
 
     printout_cells > 0 || push!(problems, "no cell writes the notebook printout/PDF")
+
+    ## a markdown cell that interpolates inside a code span prints the expression,
+    ## not its value -- the reader would be told something that is not true
+    for (id, code) in markdown_cells, snippet in literal_interpolations(code)
+        push!(problems, string("cell ", first(id, 8),
+            " interpolates inside a code span, so the reader sees the expression: ",
+            snippet))
+    end
 
     return (notebook = Sym(basename(path)), path = String(path), ok = isempty(problems),
         problems = problems, cells = length(cells), code_cells = length(code_cells),

@@ -193,6 +193,7 @@ export find_chrome, pdf_available, html_to_pdf, print_html_to_pdf, pdf_capabilit
 
 # notebooks
 export notebook_files, notebook_cells, is_markdown_cell, cell_order_section,
+    literal_interpolations,
     known_notebook_names, validate_notebook, validate_notebooks,
     print_validation_report, run_notebook, run_notebooks, print_notebook_report,
     pluto_module, cell_bindings, cell_references, PLUTO_CELL_MARKER, PLUTO_ORDER_MARKER
