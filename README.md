@@ -170,6 +170,7 @@ notebooks/                eight Pluto notebooks + their own environment
 scripts/run_study.jl      the whole study: data, experiments, printouts, PDFs
 scripts/run_notebooks.jl  run every notebook headless
 scripts/validate_notebooks.jl  static checks of the notebooks
+scripts/make_notebooks.jl      author (or re-author) the notebooks
 test/                     the test suite (one file per layer)
 data/                     generated observations, calibration, analysis, reevaluation log
 reports/figures/          the charts, as PNG

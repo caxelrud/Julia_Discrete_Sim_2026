@@ -1,38 +1,20 @@
 ### A Pluto.jl notebook ###
-# v1.0.3
+# v0.20.23
 
 using Markdown
 using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    #! format: off
-    return quote
+    quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
-    #! format: on
 end
 
-# ╔═╡ 7d97dc61-6ee2-447e-b292-f9e124347216
-begin
-import Pkg
-    Pkg.activate(@__DIR__)
-end
-
-# ╔═╡ d1f6120c-5278-4147-b9e3-55a91f03e6ec
-begin
-using DiscreteSim
-    using PlutoUI
-    using Plots
-    using Statistics
-    using Printf
-    using Dates
-end
-
-# ╔═╡ eea59707-7100-474a-a478-7a38f6ffac30
+# ╔═╡ dab74212-5e01-456f-9de2-0464418de0e8
 md"""
 # The five models
 
@@ -45,7 +27,7 @@ cell. Nothing here is a copy of a number typed by hand -- every value comes from
 the bundle, and the bundle comes from `scripts/run_study.jl`.
 """
 
-# ╔═╡ ef6d828d-608d-4742-ae41-84d6b2323aa5
+# ╔═╡ 617adf5a-5754-4673-ad1b-354c81a517f9
 md"""
 ## The environment
 
@@ -55,12 +37,28 @@ explicitly means the notebook runs the same environment interactively and headle
 (`scripts/run_notebooks.jl`), with no package installation in the middle.
 """
 
-# ╔═╡ 0b46a319-c2e5-40db-917e-92881a5e5324
+# ╔═╡ 34e194bb-f775-4b55-8054-9e932b643f77
+begin
+import Pkg
+    Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 059ce9d0-f4ed-4b6e-98c5-5bc394cd89fe
+begin
+using DiscreteSim
+    using PlutoUI
+    using Plots
+    using Statistics
+    using Printf
+    using Dates
+end
+
+# ╔═╡ bc535944-8b51-41b8-8e52-080fa356e431
 begin
 ROOT = dirname(@__DIR__)
 end
 
-# ╔═╡ c3ab9155-92bd-4659-ae50-a84095f49f83
+# ╔═╡ d5fa439a-c473-4e6c-8d1c-61c5f8842f18
 md"""
 ## The study, loaded from disk
 
@@ -69,27 +67,27 @@ symbol-keyed records the package uses, so the notebook and the printed report
 show the same numbers without re-running the study.
 """
 
-# ╔═╡ c08ed79a-96bd-4d22-a059-7fb2a91fe38d
+# ╔═╡ 629ebb5f-f35d-44ce-8942-186fc69fd336
 begin
 bundle = load_study(ROOT);
 end
 
-# ╔═╡ 2cd33bd7-a912-4465-a71a-3388135cef4c
+# ╔═╡ 1be524a7-fb5c-431d-b131-5083b6c2a5a3
 begin
 TableOfContents()
 end
 
-# ╔═╡ b58c6960-3682-4cbd-8935-63cdd0df151b
+# ╔═╡ fb1edf77-d5af-4666-b0bf-12e182828d7e
 md"""
 ## The section: *Models*
 """
 
-# ╔═╡ ae8cd5f2-c94d-49c2-9d19-87b7c013634e
+# ╔═╡ 86ec5e08-a71a-4724-85b4-d2f7ca6570f9
 begin
 HTML(preview_section(bundle, :models))
 end
 
-# ╔═╡ 3c90cecc-9716-462c-ae27-7788643b79bf
+# ╔═╡ 293b9621-c967-4c1f-a78f-e15556da621c
 md"""
 ## Every model, one at a time
 
@@ -98,12 +96,12 @@ produced) and run it: the metrics come from the engine, and the last row is the
 cross-check — Erlang C for the queues, Little's law for the rest.
 """
 
-# ╔═╡ a6fa50ae-b398-44d0-90ab-1fd586552924
+# ╔═╡ b8e9cea6-0b38-4783-a30f-51ed21b31b40
 begin
 @bind choice Select([code_string(m) => m for m in MODELS]; default = :machine_shop)
 end
 
-# ╔═╡ 7931b2ca-1337-4501-a2fc-a2dde4c8184e
+# ╔═╡ c05b25bd-1a03-4a13-9a9d-5a04b3a1907d
 begin
 chosen = model_params_from_calibration(bundle[:calibration], choice)
     sample = build_model(choice, chosen,
@@ -117,7 +115,7 @@ chosen = model_params_from_calibration(bundle[:calibration], choice)
             max(length(servers), 1), digits = 3))
 end
 
-# ╔═╡ 83cf8e22-5000-42e2-a3b7-b4a0b33801e7
+# ╔═╡ f27df398-8690-4b94-a3e4-6bb97caaff9c
 begin
 rows = [SymDict(:metric => get(r, :name, :unknown), :kind => get(r, :kind, :unknown),
             :mean => get(r, :mean, NaN), :unit => get(r, :unit, :count))
@@ -125,19 +123,19 @@ rows = [SymDict(:metric => get(r, :name, :unknown), :kind => get(r, :kind, :unkn
     table_html(rows, [:metric, :kind, :mean, :unit]) |> HTML
 end
 
-# ╔═╡ 80efe0c9-f60a-47a7-8b60-c8f082fab089
+# ╔═╡ 0ab500c1-76b3-4e1e-ba03-c3ec22a73f44
 begin
 fig_utilisation(sample)
 end
 
-# ╔═╡ 240355b6-3630-4a5d-a1d7-e3a20364d1d2
+# ╔═╡ 9d5ec269-eef5-44c8-82b4-ac050011e9f7
 begin
 from_study = metric_ci(bundle[:models][choice], :throughput)
     (choice = choice, source = :from_the_study,
         throughput = from_study === nothing ? NaN : from_study[:mean])
 end
 
-# ╔═╡ ba06b046-9369-4083-9e18-80a4368e9c82
+# ╔═╡ 277a03ff-512f-4522-a57a-3fefaf9724b5
 md"""
 ## The printout, and its PDF
 
@@ -147,13 +145,13 @@ with a headless browser: `reports/html/notebook_models.html` and
 printout.
 """
 
-# ╔═╡ 215807b8-df6a-4f18-a16c-32e3fb05d37a
+# ╔═╡ c679c8f4-3372-4bd2-875b-80bb199b189e
 begin
 println("run the study first if this file is missing: julia --project=. scripts/run_study.jl")
     print_section_pdf(bundle, :models; root = ROOT)
 end
 
-# ╔═╡ ac3d8134-3315-460c-b47a-adefd157a34d
+# ╔═╡ 27a9a355-34e2-43d3-b7a8-91f69e963e30
 md"""
 ---
 *Generated by `DiscreteSim.jl` from `data/analysis.json` (seed
@@ -162,22 +160,22 @@ md"""
 """
 
 # ╔═╡ Cell order:
-# ╠═eea59707-7100-474a-a478-7a38f6ffac30
-# ╠═ef6d828d-608d-4742-ae41-84d6b2323aa5
-# ╠═7d97dc61-6ee2-447e-b292-f9e124347216
-# ╠═d1f6120c-5278-4147-b9e3-55a91f03e6ec
-# ╠═0b46a319-c2e5-40db-917e-92881a5e5324
-# ╠═c3ab9155-92bd-4659-ae50-a84095f49f83
-# ╠═c08ed79a-96bd-4d22-a059-7fb2a91fe38d
-# ╠═2cd33bd7-a912-4465-a71a-3388135cef4c
-# ╠═b58c6960-3682-4cbd-8935-63cdd0df151b
-# ╠═ae8cd5f2-c94d-49c2-9d19-87b7c013634e
-# ╠═3c90cecc-9716-462c-ae27-7788643b79bf
-# ╠═a6fa50ae-b398-44d0-90ab-1fd586552924
-# ╠═7931b2ca-1337-4501-a2fc-a2dde4c8184e
-# ╠═83cf8e22-5000-42e2-a3b7-b4a0b33801e7
-# ╠═80efe0c9-f60a-47a7-8b60-c8f082fab089
-# ╠═240355b6-3630-4a5d-a1d7-e3a20364d1d2
-# ╠═ba06b046-9369-4083-9e18-80a4368e9c82
-# ╠═215807b8-df6a-4f18-a16c-32e3fb05d37a
-# ╠═ac3d8134-3315-460c-b47a-adefd157a34d
+# ╠═dab74212-5e01-456f-9de2-0464418de0e8
+# ╠═617adf5a-5754-4673-ad1b-354c81a517f9
+# ╠═34e194bb-f775-4b55-8054-9e932b643f77
+# ╠═059ce9d0-f4ed-4b6e-98c5-5bc394cd89fe
+# ╠═bc535944-8b51-41b8-8e52-080fa356e431
+# ╠═d5fa439a-c473-4e6c-8d1c-61c5f8842f18
+# ╠═629ebb5f-f35d-44ce-8942-186fc69fd336
+# ╠═1be524a7-fb5c-431d-b131-5083b6c2a5a3
+# ╠═fb1edf77-d5af-4666-b0bf-12e182828d7e
+# ╠═86ec5e08-a71a-4724-85b4-d2f7ca6570f9
+# ╠═293b9621-c967-4c1f-a78f-e15556da621c
+# ╠═b8e9cea6-0b38-4783-a30f-51ed21b31b40
+# ╠═c05b25bd-1a03-4a13-9a9d-5a04b3a1907d
+# ╠═f27df398-8690-4b94-a3e4-6bb97caaff9c
+# ╠═0ab500c1-76b3-4e1e-ba03-c3ec22a73f44
+# ╠═9d5ec269-eef5-44c8-82b4-ac050011e9f7
+# ╠═277a03ff-512f-4522-a57a-3fefaf9724b5
+# ╠═c679c8f4-3372-4bd2-875b-80bb199b189e
+# ╠═27a9a355-34e2-43d3-b7a8-91f69e963e30
