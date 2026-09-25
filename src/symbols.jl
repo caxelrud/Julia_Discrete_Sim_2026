@@ -170,7 +170,8 @@ const RUN_VERDICTS = (:stable, :degraded, :overloaded, :underused, :empty, :unkn
 
 """Unit of a metric or a parameter."""
 const UNITS = (:count, :seconds, :minutes, :hours, :days, :weeks, :ratio, :percent,
-    :items_per_hour, :items_per_day, :per_hour, :per_day, :currency,
+    :items_per_second, :items_per_minute, :items_per_hour, :items_per_day, :items_per_week,
+    :per_second, :per_minute, :per_hour, :per_day, :per_week, :currency,
     :currency_per_hour, :inventory_units, :orders, :calls, :jobs)
 
 ## ---- normalising helpers ------------------------------------------------------
@@ -292,12 +293,38 @@ end
 """Kind (`:rate`, `:duration`, `:count`, `:ratio`, `:money`) of a metric."""
 metric_kind(m) = get(METRIC_KIND_TABLE, Sym(m), :count)
 
-"""Unit symbol implied by the kind of a metric, or by the short name of a statistic."""
-function metric_unit(m)
+"""
+    rate_unit(time_unit = :minutes) -> Symbol
+
+The unit of a rate measured in the time unit of a run: a throughput counted in a
+`:minutes` model is *items per minute*, not items per hour.
+
+A rate is `count / measured_span`, and `measured_span` is in the model's own time
+unit, so the unit of the rate has to follow the model -- which is exactly what
+[`model_time_unit`](@ref) provides for the models of this package.
+"""
+function rate_unit(time_unit::Symbol = :minutes)
+    t = Sym(time_unit)
+    t === :seconds && return :items_per_second
+    t === :hours && return :items_per_hour
+    t === :days && return :items_per_day
+    t === :weeks && return :items_per_week
+    return :items_per_minute
+end
+
+"""
+    metric_unit(m; time_unit = :minutes) -> Symbol
+
+Unit symbol implied by the kind of a metric, or by the short name of a statistic.
+
+A rate metric (`:throughput`, a sweep objective that counts items per unit time)
+is expressed in `time_unit`, the time unit of the model the metric came from.
+"""
+function metric_unit(m; time_unit::Symbol = :minutes)
     k = Sym(m)
     haskey(STATISTIC_UNIT_TABLE, k) && return STATISTIC_UNIT_TABLE[k]
     kind = metric_kind(k)
-    return kind === :rate ? :items_per_hour :
+    return kind === :rate ? rate_unit(time_unit) :
            kind === :duration ? :minutes :
            kind === :ratio ? :ratio :
            kind === :money ? :currency : :count
@@ -336,10 +363,22 @@ const STATISTIC_UNITS = (
 const STATISTIC_UNIT_TABLE =
     Dict{Symbol,Symbol}(k => v for (k, v) in pairs(STATISTIC_UNITS))
 
+"""
+The counts for which *more* is the good news: the output of the system, as opposed
+to its waste (`:scrapped`, `:lost_orders`, `:backlog_mean`), which is what a count
+usually means.
+"""
+const BETTER_WHEN_HIGHER = (:completed,)
+
 """`:min` or `:max`: the direction in which a metric is good news."""
 function optimisation_direction(m)
-    return metric_kind(m) in (:duration, :count) ? :min :
-           metric_kind(m) === :rate ? :max : :max
+    k = Sym(m)
+    ## a count is usually bad news (scrap, lost orders, backlog), except for the
+    ## counters that *are* the output of the system: more completed jobs is better,
+    ## and a comparison that says otherwise is worse than no comparison
+    k in BETTER_WHEN_HIGHER && return :max
+    return metric_kind(k) in (:duration, :count) ? :min :
+           metric_kind(k) === :rate ? :max : :max
 end
 
 """`true` when a lower value of the metric is the better one."""

@@ -52,6 +52,14 @@ typo is an error, never a silently missing number.
 | The study in one call | `run_study`, `load_study`, `report_manifest` |
 | Notebooks as deliverables | `validate_notebooks`, `run_notebook` |
 
+## Documentation
+
+| Document | What it is for |
+|---|---|
+| **[docs/HOW_TO_USE.md](docs/HOW_TO_USE.md)** | how to install it, run the study, open the notebooks, print the PDFs, write your own model, and what to do when something goes wrong |
+| **[docs/THE_CASE.md](docs/THE_CASE.md)** | what this repository simulates: the plant, the measurements, the model, the design, every result, and what the case does not claim |
+| the file headers in `src/` | each file explains itself: `src/` is one file per layer, ~8 000 lines, no hidden machinery |
+
 ## Quick start
 
 ```julia
@@ -68,24 +76,49 @@ Open the notebooks with Pluto:
 julia --project=. -e 'import Pluto; Pluto.run()'
 ```
 
-then open `notebooks/00_Study_Overview.jl`.
+then open `notebooks/00_Study_Overview.jl`. Each notebook loads the study from disk,
+shows its section of the report and **prints that section to PDF in its last cell** --
+so `reports/pdf/notebook_*.pdf` is what the notebooks themselves produced. The details
+(what every notebook shows, what the print cell returns, how to print your own
+analysis) are in [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
 
 ### A first session in the REPL
 
 ```julia
 using DiscreteSim
 
-σ = Sim(:queue; seed = 7, horizon = 5000.0)          # a run is a function of its seed
-warmup!(σ, 500.0)                                    # discard the transient
-server = resource!(σ, Resource(:server; capacity = 2))
+σ = Sim(:clinic; seed = 20260101, horizon = 4000.0, time_unit = :minutes)   # a run is a function of its seed
+warmup!(σ, 400.0)                                     # discard the transient
+doctors = resource!(σ, Resource(:doctor; capacity = 3))
 
-@process σ arrivals(σ)                               # a process that generates work
-@process σ worker(σ, server)                         # a process that serves it
+"""The generator: one patient every 1.6 minutes."""
+function arrivals(σ)
+    while σ.now <= σ.config.horizon
+        hold!(σ, exp_rv(σ, :interarrival, 1 / 1.6))
+        spawn!(σ, () -> visit(σ, doctors), name = :patient)
+    end
+end
 
+"""One patient: wait for a doctor, be seen, leave."""
+function visit(σ, doctors)
+    request!(σ, doctors)
+    hold!(σ, sample_rv(σ, :service, :lognormal => (log(3.5), 0.6)))  # median 3.5 min
+    release!(σ, doctors)
+    count!(σ, :completed)
+end
+
+@process σ arrivals(σ)                                # @process spawns a call
 run!(σ)
-(utilisation = utilisation(σ[:server]), wait = mean_wait(σ[:server]),
-    completed = σ[:completed][:total])
+
+(utilisation = round(utilisation(σ[:doctor]), digits = 3),
+    wait = round(mean_wait(σ[:doctor]), digits = 2),
+    completed = σ[:completed][:total], little_law = little_law(σ, :doctor)[:holds])
+# (utilisation = 0.859, wait = 4.52, completed = 2240, little_law = true)
 ```
+
+`@process` *spawns* a call: the body of a process is an ordinary function, and
+`@process σ name(σ)` starts it. `hold!` suspends the process and the calendar keeps the
+loop, so a model reads like sequential code.
 
 ### A study in three lines
 
@@ -96,9 +129,10 @@ report_manifest(bundle[:manifest])
 ```
 
 `run_study` writes `data/*.json`, `data/*.csv`, `reports/figures/*.png`,
-`reports/html/*.html` and `reports/pdf/*.pdf` -- including one PDF per section and
-the whole study as one document. `load_study(root)` reads it back in a second, so a
+`reports/html/*.html` and `reports/pdf/*.pdf` -- including one PDF per section and the
+whole study as one document. `load_study(root)` reads it back in a second, so a
 notebook shows the same numbers without re-running anything.
+
 
 ## The engine
 
@@ -172,6 +206,8 @@ scripts/run_notebooks.jl  run every notebook headless
 scripts/validate_notebooks.jl  static checks of the notebooks
 scripts/make_notebooks.jl      author (or re-author) the notebooks
 test/                     the test suite (one file per layer)
+docs/HOW_TO_USE.md        how to use the package, the notebooks and the PDFs
+docs/THE_CASE.md          the case this repository demonstrates, with every number
 data/                     generated observations, calibration, analysis, reevaluation log
 reports/figures/          the charts, as PNG
 reports/html/             the printouts (self-contained: CSS and figures embedded)

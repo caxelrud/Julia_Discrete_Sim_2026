@@ -50,6 +50,36 @@ end
     no_series = warmup_analysis(opts -> build_model(:inventory,
             default_params(:inventory), opts), cfg; series = :nonexistent)
     @test no_series[:warmup] == 0.0
+    @test isnan(no_series[:plateau]) && isnan(no_series[:band])   # every key is there
+
+    ## a series that is *pinned* (a WIP cap) is flat: the band must not be so narrow
+    ## that a flat series is called "never settles" -- the floor on the band is what
+    ## keeps the plateau test from becoming a knife edge
+    capped = warmup_analysis(opts -> build_model(:machine_shop,
+            model_params(:machine_shop, (arrival_rate = 0.6, wip_limit = 6)), opts),
+        ExperimentConfig(replications = 2, horizon = 3000.0, warmup = 0.0, seed = 7);
+        series = :wip, window = 20)
+    @test capped[:plateau] <= 7.0                     # the shop sits at its WIP cap
+    @test capped[:band] >= 0.5 * capped[:spread]      # the floor only widens the band
+    @test capped[:band] > 0.0
+
+    ## the shop the study calibrates: a WIP that wanders more than its own band is
+    ## reported as such -- the suggestion is a number, and the section says in words
+    ## that the diagnostic could not settle the series
+    shop = warmup_analysis(opts -> build_model(:machine_shop,
+            model_params_from_calibration(calibrate(generate_history(; seed = 20260101,
+                days = 45.0)), :machine_shop), opts),
+        ExperimentConfig(replications = 2, horizon = 4000.0, warmup = 0.0, seed = 20260101);
+        series = :wip, window = 20)
+    @test 0.0 <= shop[:warmup] <= 4000.0
+    @test shop[:plateau] > 5.0                        # the shop works on about a dozen jobs
+    late = shop[:warmup] > 0.5 * 4000.0
+    if late
+        section = preview_section(SymDict(:warmup => shop,
+            :config => SymDict(:horizon => 4000.0)), :experiments)
+        @test occursin("could not find a plateau", section)
+        @test occursin("design decision, not a measurement", section)
+    end
 
     bm = batch_means(rand(StableRNGs.StableRNG(4), 2000); batches = 20)
     @test bm[:batches] == 20

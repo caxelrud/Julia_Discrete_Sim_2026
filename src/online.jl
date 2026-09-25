@@ -248,8 +248,11 @@ function _try_online(cfg::OnlineConfig, d::SymDict)
             continue
         end
         try
-            response = HTTP.get(cfg.url; connect_timeout = cfg.timeout,
-                read_timeout = cfg.timeout, headers = ["User-Agent" => cfg.user_agent])
+            ## HTTP counts a timeout in whole seconds; the record keeps it in seconds
+            ## as a float because that is how the rest of the package talks about time
+            seconds = max(1, Int(round(cfg.timeout)))
+            response = HTTP.get(cfg.url; connect_timeout = seconds,
+                read_timeout = seconds, headers = ["User-Agent" => cfg.user_agent])
             response.status == 200 || begin
                 d[:status] = :error
                 d[:error] = "HTTP $(response.status)"

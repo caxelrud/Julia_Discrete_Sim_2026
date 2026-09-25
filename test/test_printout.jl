@@ -14,6 +14,8 @@
     @test fmt_number(:wait) == "wait"
     @test fmt_number(true) == "yes"
     @test fmt_metric(12.5, :items_per_hour) == "12.5 /h"
+    @test fmt_metric(12.5, :items_per_minute) == "12.5 /min"
+    @test fmt_metric(12.5, :per_minute) == "12.5 /min"
     @test fmt_metric(0.82, :ratio) == "0.82"
     @test fmt_metric(3.0, :minutes) == "3 minutes"
     @test fmt_value("text", :count) == "text"
@@ -118,6 +120,15 @@ end
     run!(σ)
     bundle = SymDict(:run => σ, :config => SymDict(:seed => 2, :replications => 3,
         :horizon => 800.0, :warmup => 100.0, :title => :test_study), :model => :mmc)
+
+    ## a rate in the report carries the unit of the model it came from
+    exp = experiment(opts -> build_model(:mmc, model_params(:mmc), opts),
+        ExperimentConfig(replications = 2, horizon = 300.0); name = :units)
+    for (model, expected) in ((:machine_shop, "items_per_minute"), (:inventory, "items_per_day"))
+        cards = headline_cards(SymDict(:experiment => exp, :model => model,
+            :config => SymDict(:seed => 2, :replications => 3)))
+        @test occursin(expected, cards_html(cards))
+    end
 
     meta = report_meta(bundle)
     @test meta[:model] === :mmc

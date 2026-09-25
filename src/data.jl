@@ -421,7 +421,43 @@ function model_params_from_calibration(cal::AbstractDict, model::Symbol; overrid
     if haskey(q, :demand_mean) && k === :inventory
         p[:demand_size] = q[:demand_mean]
     end
+    if haskey(q, :service) && k === :machine_shop
+        ## The shop's processing times are *scaled* to the plant, not invented: the
+        ## observed service time is the work one job needs, so the cycles of the
+        ## routing are scaled until the work content of an average job equals it.
+        ## Without this mapping the arrival rate would come from the plant and the
+        ## processing times from the catalogue -- two different plants, and a shop
+        ## that only survives because its WIP limit refuses most of the demand.
+        observed = Float64(get(get(cal, :service, SymDict()), :mean, NaN))
+        base = default_work_content(p)
+        if isfinite(observed) && observed > 0 && base > 0
+            p[:cycles] = scale_table(p[:cycles], observed / base)
+        end
+    end
     return p
+end
+
+"""
+    default_work_content(params) -> Float64
+
+The machine time an average job needs under the routing and the mix of `params`:
+the reference value the calibration scales to what the plant measured.
+"""
+function default_work_content(params::AbstractDict)
+    routing = get(params, :routing, nothing)
+    cycles = get(params, :cycles, nothing)
+    mix = get(params, :mix, nothing)
+    (routing === nothing || cycles === nothing || mix === nothing) && return 0.0
+    total = 0.0
+    weight = 0.0
+    for (product, share) in pairs(mix)
+        haskey(routing, product) || continue
+        work = sum(Float64[Float64(cycles[m]) for m in routing[product]
+                    if haskey(cycles, m)]; init = 0.0)
+        total += Float64(share) * work
+        weight += Float64(share)
+    end
+    return weight > 0 ? total / weight : 0.0
 end
 
 """The calibration as one table (the body of the report's calibration section)."""

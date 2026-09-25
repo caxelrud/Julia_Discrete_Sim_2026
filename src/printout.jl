@@ -94,8 +94,14 @@ end
 function fmt_metric(value::Real, unit::Symbol)
     u = Sym(unit)
     suffix = u === :items_per_hour ? " /h" :
+             u === :items_per_minute ? " /min" :
+             u === :items_per_second ? " /s" :
+             u === :items_per_week ? " /wk" :
              u === :items_per_day ? " /d" :
              u === :per_hour ? " /h" :
+             u === :per_minute ? " /min" :
+             u === :per_second ? " /s" :
+             u === :per_week ? " /wk" :
              u in (:ratio, :none) ? "" :
              u === :percent ? "%" :
              u === :currency ? " \$" : string(" ", code_string(u))
@@ -250,19 +256,26 @@ end
 const ANALYSIS_KEYS = (:overview, :engine, :queues, :models, :experiments, :calibration,
     :online, :reports)
 
+"""The model a bundle is about, or `:mmc` when the bundle does not say."""
+function bundle_model(bundle::AbstractDict)
+    m = get(bundle, :model, :mmc)
+    return m isa Symbol ? m : Sym(m)
+end
+
 """Cards of the headline numbers of a bundle."""
 function headline_cards(bundle::AbstractDict)
     exp = get(bundle, :experiment, nothing)
+    unit = model_time_unit(bundle_model(bundle))
     cards = NamedTuple[]
     push!(cards, (label = :models, value = length(get(bundle, :models, SymDict())),
         unit = nothing))
     if exp isa ExperimentResult
         ci = metric_ci(exp, :throughput)
         ci === nothing || push!(cards, (label = :throughput, value = ci[:mean],
-            unit = metric_unit(:throughput)))
+            unit = metric_unit(:throughput; time_unit = unit)))
         ci = metric_ci(exp, :cycle_time_mean)
         ci === nothing || push!(cards, (label = :cycle_time_mean, value = ci[:mean],
-            unit = metric_unit(:cycle_time_mean)))
+            unit = metric_unit(:cycle_time_mean; time_unit = unit)))
         ci = metric_ci(exp, :utilisation)
         ci === nothing || push!(cards, (label = :utilisation, value = ci[:mean],
             unit = :ratio))
@@ -280,12 +293,14 @@ function headline_cards(bundle::AbstractDict)
 end
 
 """The experiment table of one model: every metric with its interval, in the catalogue order."""
-function metrics_table_html(res::ExperimentResult; only = nothing)
+function metrics_table_html(res::ExperimentResult; only = nothing,
+    time_unit::Symbol = :minutes)
     order = only === nothing ? metric_keys(res) : [Sym(k) for k in only]
     rows = SymDict[]
     for k in order
         ci = metric_ci(res, k)
         ci === nothing && continue
+        isnan(num(ci[:mean])) && continue      # a statistic the model never fired
         row = SymDict()
         row[:metric] = k
         row[:mean] = ci[:mean]
@@ -294,7 +309,7 @@ function metrics_table_html(res::ExperimentResult; only = nothing)
         row[:hi] = ci[:hi]
         row[:n] = ci[:n]
         row[:rel_hw_pct] = 100 * num(get(ci, :relative_half_width, NaN))
-        row[:unit] = metric_unit(k)
+        row[:unit] = metric_unit(k; time_unit = time_unit)
         push!(rows, row)
     end
     return table_html(rows, [:metric, :mean, :half_width, :unit, :rel_hw_pct];
@@ -347,7 +362,8 @@ function overview_section(bundle::AbstractDict)
     run = get(bundle, :run, nothing)
     run isa Sim && (body *= resources_table_html(run))
     exp = get(bundle, :experiment, nothing)
-    exp isa ExperimentResult && (body *= metrics_table_html(exp))
+    exp isa ExperimentResult &&
+        (body *= metrics_table_html(exp; time_unit = model_time_unit(bundle_model(bundle))))
     return section_html(:overview, "Overview", body;
         lead = "A discrete-event simulation study: the engine, the calibration and the " *
                "experiments, with every number carrying its confidence interval.")
@@ -556,11 +572,19 @@ function experiments_section(bundle::AbstractDict)
     body = ""
     if haskey(bundle, :warmup)
         wu = bundle[:warmup]
+        horizon = Float64(get(get(bundle, :config, SymDict()), :horizon, 0.0))
+        late = horizon > 0 && Float64(get(wu, :warmup, 0.0)) > 0.5 * horizon
+        caveat = late ?
+                 string(" That is most of the horizon: for this series the diagnostic could " *
+                        "not find a plateau -- the curve moves by ", fmt_number(wu[:band]),
+                        " around ", fmt_number(wu[:plateau]), " all the way to the end -- so ",
+                        "the number below is a design decision, not a measurement: more " *
+                        "replications or a longer window would settle it.") : ""
         body *= string("<h3>How long the transient lasts</h3>",
             paragraph_html(string("Welch's procedure on the ", code_string(wu[:series]),
                 " series over ", wu[:replications], " replications suggests discarding the " *
                 "first ", fmt_number(wu[:warmup]), " time units (plateau ",
-                fmt_number(wu[:plateau]), " ± ", fmt_number(wu[:band]), ").")),
+                fmt_number(wu[:plateau]), " ± ", fmt_number(wu[:band]), ").", caveat)),
             figure_html(get(figures_of(bundle), :warmup, nothing)))
     end
     if haskey(bundle, :batch_means)
@@ -571,7 +595,7 @@ function experiments_section(bundle::AbstractDict)
     end
     exp = get(bundle, :experiment, nothing)
     exp isa ExperimentResult && (body *= string("<h3>The replications</h3>",
-        metrics_table_html(exp),
+        metrics_table_html(exp; time_unit = model_time_unit(bundle_model(bundle))),
         figure_html(get(figures_of(bundle), :convergence, nothing))))
     cmp = get(bundle, :comparison, nothing)
     cmp isa SymDict && (body *= comparison_body(cmp, figures_of(bundle)))

@@ -109,6 +109,12 @@ end
     @test mmc_params[:servers] == default_params(:mmc)[:servers]
     shop_params = model_params_from_calibration(cal, :machine_shop)
     @test shop_params[:mtbf] == parameters[:mtbf]
+    ## ... including the shop's processing times, which are *scaled* to the plant: the
+    ## work content of an average job is the service time the plant measured, so the
+    ## arrival rate and the cycles belong to the same plant
+    @test default_work_content(shop_params) ≈ cal[:service][:mean] rtol = 1e-6
+    @test default_work_content(default_params(:machine_shop)) > 10.0
+    @test default_work_content(SymDict()) == 0.0
     inventory_params = model_params_from_calibration(cal, :inventory)
     @test inventory_params[:demand_size] == parameters[:demand_mean]
 

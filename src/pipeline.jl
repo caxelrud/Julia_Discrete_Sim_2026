@@ -37,7 +37,12 @@ Base.@kwdef mutable struct PipelineConfig
     featured::Symbol = :machine_shop
     objective::Symbol = :cycle_time_mean
     sweep_param::Symbol = :arrival_rate
-    sweep_values::Vector{Float64} = Float64[0.055, 0.075, 0.095, 0.11, 0.125]
+    ## an empty vector means "walk the parameter around the value the calibration
+    ## produced" (`:sweep_factors` times it): a sweep of absolute values would sit
+    ## far away from the operating point of a model whose parameters came from data,
+    ## and would answer a question nobody asked
+    sweep_values::Vector{Float64} = Float64[]
+    sweep_factors::Vector{Float64} = Float64[0.6, 0.8, 1.0, 1.2, 1.4]
     comparisons::Vector{Symbol} = Symbol[]
     warmup_replications::Int = 4
     data_dir::String = "data"
@@ -82,6 +87,21 @@ study_experiment(cfg::PipelineConfig; replications = cfg.replications,
     warmup = cfg.warmup, horizon = cfg.horizon) =
     ExperimentConfig(replications = Int(replications), horizon = Float64(horizon),
         warmup = Float64(warmup), seed = cfg.seed, parallel = cfg.parallel)
+
+"""
+    sweep_values_of(cfg, params) -> Vector{Float64}
+
+The values a sweep walks: the explicit ones if the configuration carries any, and
+otherwise `:sweep_factors` times the parameter the calibrated model has -- a
+sweep of absolute numbers would sit far from the operating point of a model whose
+parameters came from data.
+"""
+function sweep_values_of(cfg::PipelineConfig, params::AbstractDict)
+    isempty(cfg.sweep_values) || return Float64.(cfg.sweep_values)
+    base = Float64(get(params, cfg.sweep_param, NaN))
+    isfinite(base) && base != 0 || return Float64[]
+    return Float64[Float64(f) * base for f in cfg.sweep_factors]
+end
 
 ## ---- the heavy half: compute everything ------------------------------------------
 
@@ -157,7 +177,8 @@ function analysis_bundle(cfg::PipelineConfig = PipelineConfig())
 
     sweep_result = sweep((v, opts) -> build_model(featured,
             model_params(featured_params, (cfg.sweep_param => v,)), opts), cfg.sweep_param,
-        cfg.sweep_values, study_experiment(cfg; replications = max(4, cfg.replications ÷ 2));
+        sweep_values_of(cfg, featured_params),
+        study_experiment(cfg; replications = max(4, cfg.replications ÷ 2));
         name = Symbol(:sweep, :_, cfg.sweep_param), objective = cfg.objective)
 
     warmup_result = warmup_analysis(
@@ -167,16 +188,19 @@ function analysis_bundle(cfg::PipelineConfig = PipelineConfig())
 
     batch = batch_means(metric_series(experiments[featured], cfg.objective))
 
+    factorial_factors = unique([cfg.sweep_param, :arrival_rate])
+    factorial_levels = Dict(k => (k === cfg.sweep_param ?
+                                  (Float64(first(sweep_result[:values])),
+                                      Float64(last(sweep_result[:values]))) :
+                                  (Float64(featured_params[k]),
+                                      Float64(1.2 * featured_params[k])))
+                            for k in factorial_factors)
     factorial_result = factorial_design(
         (levels, opts) -> build_model(featured,
             model_params(featured_params,
-                (cfg.sweep_param => Float64(levels[cfg.sweep_param]),
-                 :arrival_rate => Float64(levels[:arrival_rate]))), opts),
-        [cfg.sweep_param, :arrival_rate],
-        Dict(cfg.sweep_param => (Float64(first(cfg.sweep_values)),
-                Float64(last(cfg.sweep_values))),
-            :arrival_rate => (Float64(featured_params[:arrival_rate]),
-                Float64(1.2 * featured_params[:arrival_rate]))),
+                (Sym(k) => Float64(v) for (k, v) in levels)...), opts),
+        factorial_factors,
+        factorial_levels,
         study_experiment(cfg; replications = cfg.warmup_replications);
         objective = cfg.objective)
 
@@ -482,7 +506,7 @@ function load_study(root::AbstractString = pwd())
     bundle[:validations] = get(raw, :validations, SymDict())
     bundle[:online] = get(raw, :online, SymDict())
     bundle[:reevaluation_log] = get(raw, :reevaluation_log, Any[])
-    bundle[:warmup] = get(raw, :warmup, SymDict())
+    bundle[:warmup] = _warmup_from_json(get(raw, :warmup, SymDict()))
     bundle[:batch_means] = get(raw, :batch_means, SymDict())
     bundle[:factorial] = get(raw, :factorial, SymDict())
     bundle[:theory] = get(raw, :theory, nothing)
@@ -495,6 +519,22 @@ function load_study(root::AbstractString = pwd())
     bundle[:run] = nothing
     bundle[:loaded] = true
     return bundle
+end
+
+"""
+Rebuild a warmup record from JSON: the curve of a series has `NaN` holes where a
+replication had not reached that grid point yet, and JSON writes a `NaN` as null, so
+the numbers have to come back as numbers (a notebook draws this curve).
+"""
+function _warmup_from_json(d::AbstractDict)
+    out = SymDict(d)
+    for key in (:times, :averaged, :smoothed)
+        haskey(out, key) || continue
+        v = out[key]
+        out[key] = v === nothing ? Float64[] :
+                   Float64[level === nothing ? NaN : Float64(level) for level in v]
+    end
+    return out
 end
 
 """Rebuild a comparison record from JSON."""

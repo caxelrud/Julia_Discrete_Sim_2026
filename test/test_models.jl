@@ -25,6 +25,28 @@
     end
     @test_throws ArgumentError build_model(:nonsense)
     @test_throws ArgumentError catalogue(:nonsense)
+
+    ## an override is set however it is written down -- a Pair, a NamedTuple, a record
+    ## or a tuple of those. A sweep passes `(param => value,)`, and silently ignoring
+    ## it would make a sweep that varies nothing look like a flat response
+    @test model_params(:mmc, :arrival_rate => 0.5)[:arrival_rate] == 0.5
+    @test model_params(:mmc, (:arrival_rate => 0.5,))[:arrival_rate] == 0.5
+    @test model_params(:mmc, [:arrival_rate => 0.5])[:arrival_rate] == 0.5
+    @test model_params(:mmc, (arrival_rate = 0.5,))[:arrival_rate] == 0.5
+    @test model_params(:mmc, SymDict(:arrival_rate => 0.5))[:arrival_rate] == 0.5
+    @test model_params(:mmc, SymDict(:servers => 3), :arrival_rate => 0.4)[:servers] == 3
+    @test model_params(model_params(:mmc), :arrival_rate => 0.2)[:arrival_rate] == 0.2
+    @test model_params(:mmc, nothing)[:arrival_rate] == default_params(:mmc)[:arrival_rate]
+    @test_throws ArgumentError model_params(:mmc, 0.5)
+
+    ## the time unit of a model is what its rates are expressed in, and the models
+    ## really do count in it (a rate labelled per minute must come from minutes)
+    for name in MODELS
+        @test model_time_unit(name) === time_unit(build_model(name, default_params(name),
+            SymDict(:horizon => 50.0)))
+    end
+    @test model_time_unit(:inventory) === :days
+    @test model_time_unit(:machine_shop) === :minutes
 end
 
 @testset "scenarios change one thing at a time" begin
@@ -116,6 +138,34 @@ end
     @test count_of(shop[:status], :refused) > 0
     @test total_of(shop[:reworked]) > 0
     @test shop[:tardiness].count > 0
+
+    ## work in progress counts the *work*, not the machines: a job waiting for
+    ## machine is work in progress exactly as much as a job being machined. The
+    ## shop must therefore satisfy Little's law as a system -- WIP = throughput
+    ## times cycle time -- and not report a WIP near the number of machines (5).
+    σ = build_model(:machine_shop, model_params(:machine_shop),
+        SymDict(:seed => 20260101, :horizon => 4000.0))
+    warmup!(σ, 400.0)
+    run!(σ)
+    m = collect_metrics(σ)
+    cycle = mean(σ[:sojourn])
+    @test m[:wip_mean] > length(default_params(:machine_shop)[:machines])
+    @test isapprox(m[:wip_mean], m[:throughput] * cycle; rtol = 0.05)
+    @test m[:wip_mean] <= default_params(:machine_shop)[:wip_limit]
+
+    ## a scalar MTBF/MTTR applies to every machine. The calibration produces scalars
+    ## (one measurement of the plant for the whole shop), and a shop whose failures
+    ## were silently switched off would report an availability of 1.0 and a
+    ## "reliability up" scenario that changes nothing.
+    scalar_shop = build_model(:machine_shop,
+        model_params(:machine_shop, (mtbf = 100.0, mttr = 10.0, arrival_rate = 0.05)),
+        SymDict(:seed => 3, :horizon => 3000.0))
+    run!(scalar_shop)
+    @test total_of(scalar_shop[:mill].breakdowns) > 0
+    @test total_of(scalar_shop[:mill].repairs) > 0
+    @test availability(scalar_shop[:mill]) < 1.0
+    @test collect_metrics(scalar_shop)[:availability] < 0.99
+    @test count_of(scalar_shop[:status], :interrupted) > 0
 
     ## the inventory model keeps its books
     inventory = build_model(:inventory, default_params(:inventory),

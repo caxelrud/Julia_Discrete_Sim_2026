@@ -117,7 +117,8 @@ function fig_throughput(run::Sim; dt::Real = 0.0)
 end
 
 """Scenario comparison: one bar per scenario with its confidence interval."""
-function fig_scenarios(cmp::SymDict; metric::Symbol = :throughput, keys = nothing)
+function fig_scenarios(cmp::SymDict; metric::Symbol = :throughput, keys = nothing,
+    time_unit::Symbol = :minutes)
     order = cmp[:order]
     metrics = keys === nothing ? [metric, :cycle_time_mean, :utilisation] : collect(keys)
     panels = Plots.Plot[]
@@ -128,7 +129,7 @@ function fig_scenarios(cmp::SymDict; metric::Symbol = :throughput, keys = nothin
         widths = [c[:half_width] for c in ci]
         p = Plots.bar([code_string(nm) for nm in order], means; yerror = widths,
             label = string(title_string(m)), color = FIGURE_COLOURS.primary,
-            ylabel = code_string(metric_unit(m)),
+            ylabel = code_string(metric_unit(m; time_unit = time_unit)),
             title = string(title_string(m), " by scenario"), legend = false)
         push!(panels, figure_theme(p))
     end
@@ -137,7 +138,7 @@ function fig_scenarios(cmp::SymDict; metric::Symbol = :throughput, keys = nothin
 end
 
 """One parameter walked: the objective with its interval and the best value marked."""
-function fig_sweep(sw::SymDict)
+function fig_sweep(sw::SymDict; time_unit::Symbol = :minutes)
     values = Float64.(sw[:values])
     ci = [metric_ci(res, sw[:objective]) for res in sw[:results]]
     any(x -> x === nothing, ci) && return nothing
@@ -146,7 +147,7 @@ function fig_sweep(sw::SymDict)
     p = Plots.plot(values, means; ribbon = widths, fillalpha = 0.25, linewidth = 2.0,
         color = FIGURE_COLOURS.primary, label = "mean and 95% CI",
         xlabel = string(title_string(sw[:param]), " (", code_string(sw[:param]), ")"),
-        ylabel = code_string(metric_unit(sw[:objective])),
+        ylabel = code_string(metric_unit(sw[:objective]; time_unit = time_unit)),
         title = string(title_string(sw[:objective]), " versus ", title_string(sw[:param])),
         legend = :topright, marker = :circle, markersize = 4)
     p = Plots.plot!(p, [sw[:best_value]], [means[sw[:best_index]]]; seriestype = :scatter,
@@ -231,14 +232,15 @@ function fig_factorial(fd::SymDict)
 end
 
 """Convergence of one metric over the replications, with its interval."""
-function fig_convergence(res::ExperimentResult; metric::Symbol = :throughput)
+function fig_convergence(res::ExperimentResult; metric::Symbol = :throughput,
+    time_unit::Symbol = :minutes)
     values = metric_series(res, metric)
     length(values) < 3 && return nothing
     ci = metric_ci(res, metric)
     cum = cumulative_mean(values)
     p = Plots.plot(1:length(cum), cum; label = "cumulative mean",
         color = FIGURE_COLOURS.primary, linewidth = 1.6, xlabel = "replication",
-        ylabel = code_string(metric_unit(metric)),
+        ylabel = code_string(metric_unit(metric; time_unit = time_unit)),
         title = string(title_string(metric), " converges to ", round(ci[:mean], digits = 3),
             " ± ", round(ci[:half_width], digits = 3)))
     p = Plots.hline!(p, [ci[:mean]]; label = "mean", color = FIGURE_COLOURS.muted,
@@ -285,6 +287,7 @@ figure whose data is missing is skipped, so the same call works for every model:
 function figure_set(bundle::AbstractDict; keys = nothing)
     figs = SymDict()
     run = get(bundle, :run, nothing)
+    unit = model_time_unit(bundle_model(bundle))
     if run isa Sim
         figs[:wip] = _maybe(fig_wip(run), :WorkInProgress)
         figs[:wait] = _maybe(fig_wait_hist(run), :WaitingTime)
@@ -293,8 +296,10 @@ function figure_set(bundle::AbstractDict; keys = nothing)
         figs[:gantt] = _maybe(fig_gantt(run), :Occupancy)
     end
     haskey(bundle, :comparison) &&
-        (figs[:scenarios] = _maybe(fig_scenarios(bundle[:comparison]), :Scenarios))
-    haskey(bundle, :sweep) && (figs[:sweep] = _maybe(fig_sweep(bundle[:sweep]), :Sweep))
+        (figs[:scenarios] = _maybe(fig_scenarios(bundle[:comparison]; time_unit = unit),
+            :Scenarios))
+    haskey(bundle, :sweep) &&
+        (figs[:sweep] = _maybe(fig_sweep(bundle[:sweep]; time_unit = unit), :Sweep))
     haskey(bundle, :warmup) && (figs[:warmup] = _maybe(fig_warmup(bundle[:warmup]), :Warmup))
     haskey(bundle, :validation) &&
         (figs[:validation] = _maybe(fig_validation(bundle[:validation]), :Validation))
@@ -305,7 +310,8 @@ function figure_set(bundle::AbstractDict; keys = nothing)
             fig_calibration(history_series(bundle[:history], :service),
                 bundle[:calibration][:service]; series = :service), :Calibration))
     haskey(bundle, :experiment) &&
-        (figs[:convergence] = _maybe(fig_convergence(bundle[:experiment]), :Convergence))
+        (figs[:convergence] = _maybe(fig_convergence(bundle[:experiment]; time_unit = unit),
+            :Convergence))
     keys === nothing && return figs
     return subset(figs, keys)
 end

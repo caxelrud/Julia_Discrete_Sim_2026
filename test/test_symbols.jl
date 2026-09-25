@@ -23,9 +23,24 @@
     @test metric_kind(:throughput) === :rate
     @test metric_kind(:cycle_time_mean) === :duration
     @test metric_unit(:utilisation) === :ratio
+    ## a rate is per the time unit of the model it came from, never per hour by
+    ## default: a throughput counted over minutes is items per minute
+    @test rate_unit(:minutes) === :items_per_minute
+    @test rate_unit(:hours) === :items_per_hour
+    @test rate_unit(:days) === :items_per_day
+    @test metric_unit(:throughput) === :items_per_minute
+    @test metric_unit(:throughput; time_unit = :days) === :items_per_day
+    @test metric_unit(:cycle_time_mean; time_unit = :days) === :minutes      # a duration
+    @test metric_unit(:wait_mean) === :minutes                             # named statistic
+    @test is_unit_of(:items_per_minute)
     @test is_lower_better(:cycle_time_mean)
     @test !is_lower_better(:throughput)
     @test optimisation_direction(:throughput) === :max
+    ## a count is usually waste, except the count that is the output of the system
+    @test optimisation_direction(:scrapped) === :min
+    @test optimisation_direction(:lost_orders) === :min
+    @test optimisation_direction(:completed) === :max
+    @test !is_lower_better(:completed)
     @test metric_label(:wait_mean) === :MeanWait
     @test metric_label(:some_custom_metric) === Symbol("Some custom metric")
 

@@ -214,12 +214,15 @@ end
 metric_keys(res::ExperimentResult) = Symbol[k for k in keys(res.summary)]
 
 """Metrics of an experiment, as one table (the body of the report's table)."""
-function metric_table(res::ExperimentResult; keys = metric_keys(res))
+function metric_table(res::ExperimentResult; keys = metric_keys(res),
+    time_unit::Symbol = :minutes)
     rows = NamedTuple[]
     for k in keys
         c = metric_ci(res, k)
         c === nothing && continue
-        push!(rows, (metric = k, unit = metric_unit(k), mean = c[:mean], sd = c[:sd],
+        isnan(num(c[:mean])) && continue       # a statistic the model never fired
+        push!(rows, (metric = k, unit = metric_unit(k; time_unit = time_unit),
+            mean = c[:mean], sd = c[:sd],
             half_width = c[:half_width], lo = c[:lo], hi = c[:hi], n = c[:n],
             relative_half_width = c[:relative_half_width], adequate = c[:adequate]))
     end
@@ -337,7 +340,7 @@ end
 
 """
     warmup_analysis(build, cfg; series = :wip, replications = 5, window = 20,
-                    tolerance = 0.5) -> SymDict
+                    tolerance = 0.5, floor_fraction = 0.01) -> SymDict
 
 Welch's procedure for the length of the transient: run `replications` copies of
 the model, average the recorded `series` across them on a common time grid,
@@ -345,12 +348,19 @@ smooth it with a moving average of `window` points and report the first time fro
 which the smoothed curve stays inside `tolerance` standard deviations of the
 plateau mean.
 
+The band is never narrower than `floor_fraction` of the plateau itself. A series
+that is *pinned* -- a work-in-progress cap, a saturated resource, a queue that has
+reached its ceiling -- has almost no spread once it is flat, and half of a spread
+of 0.005 would make the plateau test a knife edge: the smoothed curve would cross
+the band by a hair all the way to the end, the detector would answer "the last
+time unit", and a reader would take that for "this run never settles".
+
 The returned record carries the curve, the smoothed curve, the band and the
 suggested `:warmup`, which is what `cfg.warmup` should be set to.
 """
 function warmup_analysis(build::Base.Callable, cfg::ExperimentConfig;
     series::Symbol = :wip, replications::Integer = cfg.replications, window::Integer = 20,
-    tolerance::Real = 0.5, grid_points::Integer = 400)
+    tolerance::Real = 0.5, grid_points::Integer = 400, floor_fraction::Real = 0.01)
     grid = collect(range(0.0, cfg.horizon; length = Int(grid_points)))
     cols = Vector{Vector{Float64}}()
     for k in 1:Int(replications)
@@ -363,7 +373,18 @@ function warmup_analysis(build::Base.Callable, cfg::ExperimentConfig;
     d[:series] = Sym(series)
     d[:replications] = length(cols)
     d[:times] = grid
-    isempty(cols) && (d[:warmup] = 0.0; return d)
+    ## a series that is not a `Recorder` has no curve to smooth: the record still
+    ## carries every key a reader (or the report) may ask for
+    if isempty(cols)
+        d[:warmup] = 0.0
+        d[:plateau] = NaN
+        d[:spread] = NaN
+        d[:band] = NaN
+        d[:averaged] = Float64[]
+        d[:smoothed] = Float64[]
+        d[:window] = 0
+        return d
+    end
 
     averaged = Float64[]
     for i in eachindex(grid)
@@ -383,15 +404,22 @@ function warmup_analysis(build::Base.Callable, cfg::ExperimentConfig;
     valid = findall(!isnan, smoothed)
     if isempty(valid)
         d[:warmup] = 0.0
+        d[:plateau] = NaN
+        d[:spread] = NaN
+        d[:band] = NaN
         return d
     end
     half = valid[max(1, div(length(valid), 2)):end]
     plateau = sum(smoothed[i] for i in half) / length(half)
     spread = sqrt(max(sum((smoothed[i] - plateau)^2 for i in half) /
                       max(length(half) - 1, 1), 0.0))
-    band = Float64(tolerance) * spread
+    band = Float64(tolerance) * max(spread, Float64(floor_fraction) * abs(plateau))
     t_star = 0.0
     for idx in eachindex(valid)
+        ## the first time from which the smoothed curve *stays* inside the band: what
+        ## "the series is flat from here on" means. A series that wanders more than the
+        ## band all the way to the end yields a late answer, which is the honest one --
+        ## and the report says so in words rather than quoting the number alone.
         stable = all(abs(smoothed[j] - plateau) <= band for j in valid[idx:end])
         if stable
             t_star = grid[valid[idx]]

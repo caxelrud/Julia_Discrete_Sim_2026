@@ -88,7 +88,7 @@ export SymDict, Sym, code_string, title_string, symbol_equal, symbolize_keys,
     METRIC_LABELS, DISTRIBUTION_KINDS, DATA_SOURCES, FRESHNESS, REEVALUATION_VERDICTS,
     ONLINE_POLICIES, FETCH_STATUSES, EXPERIMENT_KINDS, COMPARISON_VERDICTS,
     VALIDATION_VERDICTS, THEORY_KINDS, RUN_VERDICTS, UNITS, vocabulary_of,
-    vocabulary_kinds, validate_vocabulary, metric_kind, metric_unit, metric_label,
+    vocabulary_kinds, validate_vocabulary, metric_kind, metric_unit, metric_label, rate_unit,
     optimisation_direction, is_lower_better, relative_change, relative_error,
     format_duration, is_metric, is_entity, is_event_kind, is_resource_kind,
     is_discipline, is_distribution_kind, is_data_source, is_unit_of, @syms
@@ -152,8 +152,10 @@ export ExperimentConfig, ExperimentResult, experiment, run_replication, run_opti
 
 # models
 export MODELS, MODEL_CATALOGUE, SCENARIOS, catalogue, default_params, model_params,
+    apply_overrides!,
     scenario_params, scenario_overrides, apply_scenario, model_scenarios, model_sim,
-    model_entity, model_resource, model_series, model_names, build_model, build_scenario,
+    model_entity, model_resource, model_series, model_names, model_time_unit,
+    build_model, build_scenario,
     build_calibrated_scenario, model_theory, validate_model, build_mmc,
     build_transfer_line, build_machine_shop, build_inventory, build_call_center,
     inventory_validation, expected_demand_size, wip_of, process_time,
@@ -162,7 +164,7 @@ export MODELS, MODEL_CATALOGUE, SCENARIOS, catalogue, default_params, model_para
 # data and calibration
 export PlantHistory, generate_history, history_series, history_keys, summarize_history,
     write_history_csv, calibrate, calibrate_observations, inferred_parameters,
-    model_params_from_calibration, calibration_table, bootstrap_ci
+    model_params_from_calibration, calibration_table, bootstrap_ci, default_work_content
 
 # online and reevaluation
 export OnlineConfig, ReevaluationPlan, DEFAULT_ONLINE_URL, fetch_online, read_cache,
@@ -199,7 +201,7 @@ export notebook_files, notebook_cells, is_markdown_cell, cell_order_section,
     pluto_module, cell_bindings, cell_references, PLUTO_CELL_MARKER, PLUTO_ORDER_MARKER
 
 # pipeline
-export PipelineConfig, path_of, study_experiment, config_record, analysis_bundle,
+export PipelineConfig, path_of, study_experiment, sweep_values_of, config_record, analysis_bundle,
     study_json, run_study, load_study, manifest_of, report_manifest, result_json,
     result_from_json, figure_set_from_dir
 

@@ -25,6 +25,23 @@
     @test haskey(record, :objective)
 end
 
+@testset "the sweep walks around the model, not around a hard-coded number" begin
+    ## the default configuration has no absolute sweep values: they are derived from
+    ## the parameter the calibrated model has, so the sweep watches the operating
+    ## point the data produced
+    params = SymDict(:arrival_rate => 0.8)
+    cfg = PipelineConfig()
+    @test isempty(cfg.sweep_values)
+    values = sweep_values_of(cfg, params)
+    @test length(values) == length(cfg.sweep_factors)
+    @test values[3] ≈ 0.8                      # 1.0 × the operating point is in the middle
+    @test first(values) < 0.8 < last(values)
+    ## an explicit range is honoured, and a parameter the model does not have is empty
+    explicit = sweep_values_of(PipelineConfig(sweep_values = Float64[1.0, 2.0]), params)
+    @test explicit == [1.0, 2.0]
+    @test isempty(sweep_values_of(cfg, SymDict(:machines => 5)))
+end
+
 @testset "a small study, end to end" begin
     root = joinpath(TEST_TMP, "study")
     mkpath(root)
@@ -106,7 +123,10 @@ end
     @test loaded[:validation][:verdict] in (:validated, :marginal, :not_applicable)
     @test loaded[:comparison][:results][Symbol(:baseline)] isa ExperimentResult
     @test length(loaded[:sweep][:results]) == 2
-    @test loaded[:factorial][:effects] |> length == 3
+    ## the factorial design of the study has one factor: its sweep parameter *is* the
+    ## arrival rate, so a design on both would ask the same question twice (and report
+    ## a pseudo-interaction of a factor with itself)
+    @test length(loaded[:factorial][:effects]) == 1
     @test loaded[:batch_means][:n] == 2
     @test loaded[:online][:verdict] in (:keep, :recalibrate, :escalate)
     @test !isempty(loaded[:figures])
@@ -119,6 +139,14 @@ end
     @test occursin("data:image/png;base64", html)
     preview = preview_section(loaded, :overview)
     @test occursin("id=\"overview\"", preview)
+    ## a warmup record read back from disk plots: its curve is numbers, not nulls
+    loaded = load_study(root)
+    @test loaded[:warmup][:times] isa Vector{Float64}
+    @test loaded[:warmup][:averaged] isa Vector{Float64}
+    @test length(loaded[:warmup][:smoothed]) == length(loaded[:warmup][:times])
+    @test any(isnan, loaded[:warmup][:averaged]) || all(isfinite, loaded[:warmup][:averaged])
+
+    ## the metrics table of the loaded study, as the notebook prints it
     @test occursin("wait_mean", metrics_table_html(loaded[:experiment]))  # the metric key
     out = print_section_pdf(loaded, :overview; root = root, prefix = "loaded")
     @test isfile(out[:html])

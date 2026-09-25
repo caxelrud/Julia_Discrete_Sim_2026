@@ -26,6 +26,22 @@
 """The models of the package, in the order a reader should meet them."""
 const MODELS = (:mmc, :transfer_line, :machine_shop, :inventory, :call_center)
 
+"""
+The time unit of every model (`:minutes` for the plant and the contact centre,
+`:days` for the inventory). It is what turns a rate into an *items per minute* or
+an *items per day* in the report and the figures.
+"""
+const MODEL_TIME_UNITS = (
+    mmc = :minutes,
+    transfer_line = :minutes,
+    machine_shop = :minutes,
+    inventory = :days,
+    call_center = :minutes,
+)
+
+"""The time unit a model counts in."""
+model_time_unit(name::Symbol) = MODEL_TIME_UNITS[Sym(name)]
+
 """Title, entity, resource, series and parameters of every model."""
 const MODEL_CATALOGUE = (
     mmc = (
@@ -108,25 +124,43 @@ model_names() = Symbol[k for k in keys(MODEL_CATALOGUE)]
 The default parameters of a model, with any overrides applied. This is what a
 notebook or a scenario does: start from the defaults, change what the question is
 about, and keep everything else identical.
+
+An override may be written as a `Pair` (`:arrival_rate => 0.5`), a `NamedTuple`, a
+symbol-keyed record, or a tuple/vector of those -- a sweep passes
+`(param => value,)`. An override of any other shape is a mistake in the caller's
+arithmetic and is reported as such: a sweep that silently varies nothing looks
+exactly like a flat response curve.
 """
 function model_params(name::Symbol, overrides...)
     p = default_params(Sym(name))
-    for o in overrides
-        (o isa AbstractDict || o isa NamedTuple) || continue
-        for (k, v) in pairs(o)
-            p[Sym(k)] = v
-        end
-    end
+    apply_overrides!(p, overrides)
     return p
 end
 
 """Apply overrides to an existing parameter record (the calibrated one, usually)."""
 function model_params(base::AbstractDict, overrides...)
     p = SymDict(base)
+    apply_overrides!(p, overrides)
+    return p
+end
+
+"""Set every parameter an override names (see [`model_params`](@ref))."""
+function apply_overrides!(p::AbstractDict, overrides)
     for o in overrides
-        (o isa AbstractDict || o isa NamedTuple) || continue
-        for (k, v) in pairs(o)
-            p[Sym(k)] = v
+        if o isa Pair
+            p[Sym(first(o))] = last(o)
+        elseif o isa AbstractDict || o isa NamedTuple
+            for (k, v) in pairs(o)
+                p[Sym(k)] = v
+            end
+        elseif o isa Tuple || o isa AbstractVector
+            apply_overrides!(p, o)
+        elseif o === nothing
+            ## nothing to override: a caller that has none passes none
+        else
+            throw(ArgumentError(string("cannot apply the parameter override ",
+                repr(o), "; use a Pair, a NamedTuple, a symbol-keyed record or a " *
+                "tuple of those")))
         end
     end
     return p
@@ -504,12 +538,23 @@ function line_failures(σ::Sim, station, params)
     return nothing
 end
 
-"""Parts inside the line right now: what waits in the buffers plus what is served."""
+"""
+    wip_of(σ) -> Float64
+
+Everything the system is working on right now: what waits in a buffer and what is
+being served.
+
+An entity is never in two places, so a work-in-progress statistic has to count the
+items of the stores *and* both terms of every resource (`in_use` and its queue) --
+the same two terms the per-resource Little's law check uses. Counting only what is
+being served describes the machines, not the work, and a job waiting for a machine
+would be invisible: in a job shop the queue is where most of the lead time lives.
+"""
 function wip_of(σ::Sim)
     total = 0.0
     for (_, r) in σ.resources
         r isa Store && (total += length(r.items))
-        r isa Resource && (total += r.in_use)
+        r isa Resource && (total += r.in_use + length(r.queue))
     end
     return total
 end
@@ -599,8 +644,18 @@ function cycles_of(params, machines, product)
                    if haskey(machines, m)]
 end
 
-"""Look a value up in a symbol-keyed table (a `NamedTuple` or a `SymDict`)."""
+"""
+    table_value(table, key, default = 0.0) -> Float64
+
+One value of a parameter that may be a table *or* a single number.
+
+A scalar means "this value, for every machine": that is how a calibration delivers
+`:mtbf` and `:mttr` (one measurement of the plant, applied to the whole shop), while
+the reference parameters of a model carry one value per machine. Reading a scalar as
+"no table" would silently switch the failures off.
+"""
 function table_value(table, key, default = 0.0)
+    table isa Real && !(table isa Bool) && return Float64(table)
     (table isa AbstractDict || table isa NamedTuple) || return Float64(default)
     haskey(table, Sym(key)) || return Float64(default)
     return Float64(table[Sym(key)])
